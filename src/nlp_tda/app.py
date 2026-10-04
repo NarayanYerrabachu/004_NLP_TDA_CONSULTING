@@ -669,7 +669,7 @@ def export_ui(
 
 @app.post("/ui/run")
 def ui_run(lang: str = Form(default="en")):
-    run_pipeline(settings.fixtures_dir, force_hash_embeddings=True)
+    run_pipeline(settings.fixtures_dir)
     return RedirectResponse(url=f"/review?lang={lang}&status=proposed", status_code=303)
 
 

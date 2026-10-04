@@ -91,10 +91,7 @@ def handle_command(
         source = None
         if batch_id:
             source = uploads_root() / batch_id
-        result = run_pipeline(
-            source,
-            force_hash_embeddings=settings.use_hash_embeddings or True,
-        )
+        result = run_pipeline(source)
         return {
             "kind": "pipeline",
             "title": "Pipeline finished" if lang == "en" else "Pipeline fertig",
@@ -235,7 +232,8 @@ def _retrieve_contexts(question: str, n: int = 5) -> list[dict[str, Any]]:
     try:
         store = ChunkStore()
         if store.count() > 0:
-            emb = embed_texts([question], force_hash=settings.use_hash_embeddings or True)
+            # Same embedding mode as the pipeline that filled the store (settings decide).
+            emb = embed_texts([question])
             if emb.size:
                 res = store.query(emb[0].tolist(), n_results=min(n, store.count()))
                 docs = (res.get("documents") or [[]])[0]

@@ -33,9 +33,9 @@ def build_extraction_prompt(
 ) -> tuple[str, str]:
     system = EXTRACTION_SYSTEM_DE if prefer_de else EXTRACTION_SYSTEM_EN
     themes = ", ".join(theme_labels) if theme_labels else "(none yet)"
-    # Cap each chunk to keep local CPU LLMs responsive
+    # Cap each chunk to keep local CPU LLMs responsive (the caller decides how many chunks per call)
     capped = []
-    for t in chunk_texts[:6]:
+    for t in chunk_texts:
         capped.append(t[:900] + ("…" if len(t) > 900 else ""))
     joined = "\n\n---\n\n".join(capped)
     user = (

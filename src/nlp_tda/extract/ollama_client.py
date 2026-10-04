@@ -223,17 +223,67 @@ def extract_entities(
     theme_labels: list[str],
     *,
     prefer_de: bool = False,
-) -> tuple[ExtractionBundle, str]:
+) -> tuple[ExtractionBundle, str, int]:
+    """Extract entities from every chunk of the pack, one LLM call per batch.
+
+    Returns (bundle, llm_mode, chunks_read). llm_mode: "mock" (no LLM), "ollama" (every batch
+    answered), "ollama-partial" (some batches failed and were skipped), "mock-fallback"
+    (every batch failed).
+    """
     client = OllamaClient()
     if not client.available():
-        return mock_extract(chunk_texts, theme_labels), "mock"
-    system, user = build_extraction_prompt(
-        chunk_texts=chunk_texts,
-        theme_labels=theme_labels,
-        prefer_de=prefer_de,
-    )
-    try:
-        raw = client.chat_json(system, user)
-        return ExtractionBundle.model_validate(raw), "ollama"
-    except Exception:
-        return mock_extract(chunk_texts, theme_labels), "mock-fallback"
+        return mock_extract(chunk_texts, theme_labels), "mock", len(chunk_texts)
+
+    batches = _batches(chunk_texts)
+    merged = ExtractionBundle()
+    seen: set[tuple[str, str]] = set()
+    failed = 0
+    for batch in batches:
+        system, user = build_extraction_prompt(
+            chunk_texts=batch,
+            theme_labels=theme_labels,
+            prefer_de=prefer_de,
+        )
+        try:
+            bundle = ExtractionBundle.model_validate(client.chat_json(system, user))
+        except Exception:
+            failed += 1
+            continue
+        _merge(merged, bundle, seen)
+
+    chunks_read = sum(len(b) for b in batches)
+    if batches and failed == len(batches):
+        return mock_extract(chunk_texts, theme_labels), "mock-fallback", chunks_read
+    return merged, "ollama-partial" if failed else "ollama", chunks_read
+
+
+# The field that names a record, per entity list: the same name twice is one record.
+_NAME_FIELD = {
+    "clients": "name",
+    "engagements": "title",
+    "people": "name",
+    "requirements": "statement",
+    "findings": "statement",
+    "deliverables": "name",
+}
+
+
+def _batches(chunk_texts: list[str]) -> list[list[str]]:
+    size = max(settings.extract_batch_chunks, 1)
+    batches = [chunk_texts[i : i + size] for i in range(0, len(chunk_texts), size)]
+    limit = settings.extract_max_batches
+    if limit > 0 and len(batches) > limit:
+        step = len(batches) / limit
+        batches = [batches[int(i * step)] for i in range(limit)]
+    return batches
+
+
+def _merge(merged: ExtractionBundle, bundle: ExtractionBundle, seen: set[tuple[str, str]]) -> None:
+    """Add a batch's records to ``merged``; a record already named by an earlier batch is kept once."""
+    for field, name_field in _NAME_FIELD.items():
+        for item in getattr(bundle, field):
+            key = (field, " ".join(str(getattr(item, name_field)).lower().split()))
+            if key in seen:
+                continue
+            seen.add(key)
+            getattr(merged, field).append(item)

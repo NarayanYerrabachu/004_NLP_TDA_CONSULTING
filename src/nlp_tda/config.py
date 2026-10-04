@@ -37,6 +37,11 @@ class Settings(BaseSettings):
 
     chunk_size: int = 800
     chunk_overlap: int = 120
+    # Extraction reads the whole pack, this many chunks per LLM call.
+    extract_batch_chunks: int = 6
+    # 0 = no limit. A CPU-only 7B model can need minutes per call; a limit reads that many
+    # batches spread evenly over the pack, and the run reports how many chunks were read.
+    extract_max_batches: int = 0
     tda_pca_dims: int = 8
     tda_max_points: int = 200
 

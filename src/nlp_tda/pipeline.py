@@ -85,8 +85,9 @@ def run_pipeline(
     blob = "\n".join(c.text for c in all_chunks[:20]).lower()
     prefer_de = sum(1 for w in ("und", "der", "die", "anforderung", "mandat") if w in blob) >= 2
 
-    sample_texts = [c.text for c in all_chunks[:8]]
-    bundle, llm_mode = extract_entities(sample_texts, theme_labels, prefer_de=prefer_de)
+    bundle, llm_mode, chunks_extracted = extract_entities(
+        [c.text for c in all_chunks], theme_labels, prefer_de=prefer_de
+    )
 
     session = get_session()
     try:
@@ -166,6 +167,7 @@ def run_pipeline(
         "themes": len(themes),
         "entities": entity_count,
         "llm_mode": llm_mode,
+        "chunks_extracted": chunks_extracted,
         "source_dir": str(source),
         "vector_count": store.count(),
     }
