@@ -690,12 +690,33 @@
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'Request failed');
+        if (data.kind === 'job') {
+          // A pipeline run is a background job: follow it here, then show it like any result.
+          const result = await followJob(data.job_id, thinking);
+          thinking.remove();
+          renderAskResult({ kind: 'pipeline', result });
+          return;
+        }
         thinking.remove();
         renderAskResult(data);
       } catch (err) {
         thinking.querySelector('.who')?.remove();
         thinking.textContent = '';
         thinking.innerHTML = `<span class="who">${escapeHtml(STR.assistant)}</span>${escapeHtml(err.message || String(err))}`;
+      }
+    }
+
+    async function followJob(jobId, bubble) {
+      const label = document.createElement('span');
+      bubble.appendChild(label);
+      for (;;) {
+        const res = await fetch('/api/pipeline/jobs/' + encodeURIComponent(jobId));
+        const job = await res.json();
+        if (!res.ok) throw new Error(job.detail || 'Request failed');
+        if (job.status === 'completed') return job.result;
+        if (job.status === 'failed') throw new Error(job.error || 'Request failed');
+        label.textContent = job.total ? ` (${job.done}/${job.total})` : '';
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
 

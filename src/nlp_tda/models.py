@@ -39,6 +39,10 @@ class ProvenanceFields(BaseModel):
     # Number of the excerpt the LLM read the record from (within one call). Resolved to
     # source_artifact_id / span_ref right after the call; not stored.
     chunk: Any = Field(default=None, exclude=True)
+    # Why the record is believed: "verbatim" (its name / statement stands word for word in the
+    # source chunk), "cited" (the LLM named the chunk, the wording is its own), "none" (no source).
+    evidence: Optional[str] = None
+    mentions: int = 1  # how many LLM calls or wordings produced this record
 
 
 class ClientRecord(ProvenanceFields):

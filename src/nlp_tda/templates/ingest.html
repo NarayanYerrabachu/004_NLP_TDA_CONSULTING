@@ -154,7 +154,7 @@
 
     <div class="toolbar">
       <button type="button" id="demoBtn" class="secondary">{{ s.demo }}</button>
-      <button type="button" id="clearBtn" class="secondary">{{ s.clear }}</button>
+      <button type="button" id="clearBtn" class="secondary">{{ s['clear'] }}</button>
       <button type="button" id="runBtn" disabled>{{ s.run }}</button>
     </div>
 
@@ -220,10 +220,7 @@
       runBtn.disabled = true;
       runBtn.textContent = STR.running;
       try {
-        const res = await fetch('/api/pipeline/run', { method: 'POST' });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'Pipeline failed');
-        showResult(data);
+        showResult(await runJob('/api/pipeline/run'));
       } catch (err) {
         alert(err.message || String(err));
       } finally {
@@ -237,10 +234,7 @@
       runBtn.disabled = true;
       runBtn.textContent = STR.running;
       try {
-        const res = await fetch('/api/pipeline/run?batch_id=' + encodeURIComponent(batchId), { method: 'POST' });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'Pipeline failed');
-        showResult(data);
+        showResult(await runJob('/api/pipeline/run?batch_id=' + encodeURIComponent(batchId)));
       } catch (err) {
         alert(err.message || String(err));
       } finally {
@@ -248,6 +242,37 @@
         runBtn.textContent = STR.run;
       }
     };
+
+    // Start a pipeline run and wait for it: the run is a background job that is polled for progress.
+    async function runJob(url) {
+      const res = await fetch(url, { method: 'POST' });
+      const job = await res.json();
+      if (!res.ok) throw new Error(job.detail || 'Pipeline failed');
+      return followJob(job.job_id);
+    }
+
+    async function followJob(jobId) {
+      for (;;) {
+        const res = await fetch('/api/pipeline/jobs/' + encodeURIComponent(jobId));
+        const job = await res.json();
+        if (!res.ok) throw new Error(job.detail || 'Pipeline failed');
+        if (job.status === 'completed') return job.result;
+        if (job.status === 'failed') throw new Error(job.error || 'Pipeline failed');
+        runBtn.textContent = STR.running + (job.total ? ` (${job.done}/${job.total})` : '');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+
+    // Opened with ?job=…: a run started elsewhere (the review page's run button) is followed here.
+    const openJob = new URLSearchParams(location.search).get('job');
+    if (openJob) {
+      runBtn.disabled = true;
+      runBtn.textContent = STR.running;
+      followJob(openJob)
+        .then(showResult)
+        .catch(err => alert(err.message || String(err)))
+        .finally(() => { runBtn.disabled = !batchId; runBtn.textContent = STR.run; });
+    }
 
     function showResult(data) {
       result.classList.add('show');

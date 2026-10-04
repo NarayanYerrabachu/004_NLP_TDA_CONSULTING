@@ -33,8 +33,10 @@ def merge_near_duplicates(bundle: ExtractionBundle) -> int:
             keeper = items[kept[slot]]
             if len(item.statement) > len(keeper.statement):
                 item.also_stated = [*keeper.also_stated, keeper.statement, *item.also_stated]
+                item.mentions += keeper.mentions
                 kept[slot] = i
             else:
                 keeper.also_stated.append(item.statement)
+                keeper.mentions += item.mentions
         setattr(bundle, field, [items[k] for k in kept])
     return merged_away

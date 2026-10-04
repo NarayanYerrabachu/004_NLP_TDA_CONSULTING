@@ -57,3 +57,16 @@ A fresh `.env` uses the mock LLM + hash embeddings. For real extraction and answ
 
 Inside Docker on macOS the model runs on CPU only. For GPU speed run Ollama on the host
 instead and set `NLP_TDA_OLLAMA_BASE_URL=http://host.docker.internal:11434`.
+
+## How a run behaves
+
+- **Background job.** `POST /api/pipeline/run` starts the run and returns a `job_id`;
+  `GET /api/pipeline/jobs/{job_id}` reports `stage`, `done` / `total` LLM calls, and the `result`
+  when it is `completed` (or `error` when `failed`). One run at a time: a second start gets 409.
+- **Confidence comes from evidence**, not from the LLM: `verbatim` 0.9 (the name / statement
+  stands word for word in the source chunk), `cited` 0.6 (the LLM named the chunk, the wording is
+  its own), `none` 0.3 (no source), +0.1 when more than one LLM call or wording produced it.
+- **No mock records in real results.** With `NLP_TDA_FORCE_MOCK_LLM=false` an unreachable LLM, or
+  one that answers no call, fails the run with a message. Fixture records only come from mock mode.
+- **Re-runs** replace the unreviewed drafts of the same documents; accepted, edited and rejected
+  records stay and are not proposed again.

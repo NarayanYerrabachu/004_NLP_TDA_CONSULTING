@@ -23,7 +23,7 @@ from nlp_tda.export.excel_export import (
 from nlp_tda.ingest.parsers import UPLOAD_SUFFIXES, probe_filename
 from nlp_tda.ingest.uploads import batch_summary, create_batch, save_upload, uploads_root
 from nlp_tda.models import ProposedEntity, ReviewStatus, ReviewUpdate
-from nlp_tda.pipeline import run_pipeline
+from nlp_tda import jobs
 from nlp_tda.records import apply_edits
 
 app = FastAPI(title="NLP_TDA", version="0.1.0")
@@ -453,10 +453,21 @@ def api_run_pipeline(
         path = Path(source_dir)
     else:
         path = settings.fixtures_dir
+    if not path.exists():
+        raise HTTPException(status_code=400, detail=f"Source directory not found: {path}")
     try:
-        return run_pipeline(path, force_hash_embeddings=settings.use_hash_embeddings or None)
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return jobs.as_dict(jobs.start(path))
+    except jobs.JobRunning as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.get("/api/pipeline/jobs/{job_id}")
+def api_pipeline_job(job_id: str) -> dict:
+    """Progress of a pipeline run started with POST /api/pipeline/run; ``result`` once completed."""
+    job = jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return jobs.as_dict(job)
 
 
 @app.get("/api/entities")
@@ -662,8 +673,11 @@ def export_ui(
 
 @app.post("/ui/run")
 def ui_run(lang: str = Form(default="en")):
-    run_pipeline(settings.fixtures_dir)
-    return RedirectResponse(url=f"/review?lang={lang}&status=proposed", status_code=303)
+    try:
+        job_id = jobs.start(settings.fixtures_dir).job_id
+    except jobs.JobRunning as exc:
+        job_id = exc.job_id
+    return RedirectResponse(url=f"/ingest?lang={lang}&job={job_id}", status_code=303)
 
 
 @app.post("/ui/entities/{entity_id}/review")

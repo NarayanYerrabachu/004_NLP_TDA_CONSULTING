@@ -15,12 +15,12 @@ Sprache: Feldwerte in der Dokumentsprache (Deutsch oder Englisch); JSON-Schlüss
 EXTRACTION_SCHEMA_HINT = """
 JSON schema:
 {
-  "clients": [{"name": str, "aliases": [str], "industry": str|null, "region": str|null, "status": str|null, "notes": str|null, "confidence": float, "chunk": int, "language": "en"|"de"|"mixed"}],
-  "engagements": [{"title": str, "client_name": str|null, "type": str|null, "phase": str|null, "start": str|null, "end": str|null, "status": str|null, "commercial_model": str|null, "confidence": float, "chunk": int, "language": "en"|"de"|"mixed"}],
-  "people": [{"name": str, "role": str|null, "org": str|null, "email": str|null, "engagement_titles": [str], "confidence": float, "chunk": int, "language": "en"|"de"|"mixed"}],
-  "requirements": [{"statement": str, "priority": str|null, "status": str|null, "confidence": float, "chunk": int, "language": "en"|"de"|"mixed"}],
-  "findings": [{"statement": str, "severity": str|null, "theme": str|null, "status": str|null, "confidence": float, "chunk": int, "language": "en"|"de"|"mixed"}],
-  "deliverables": [{"name": str, "type": str|null, "due_date": str|null, "engagement_title": str|null, "confidence": float, "chunk": int, "language": "en"|"de"|"mixed"}]
+  "clients": [{"name": str, "aliases": [str], "industry": str|null, "region": str|null, "status": str|null, "notes": str|null, "chunk": int, "language": "en"|"de"|"mixed"}],
+  "engagements": [{"title": str, "client_name": str|null, "type": str|null, "phase": str|null, "start": str|null, "end": str|null, "status": str|null, "commercial_model": str|null, "chunk": int, "language": "en"|"de"|"mixed"}],
+  "people": [{"name": str, "role": str|null, "org": str|null, "email": str|null, "engagement_titles": [str], "chunk": int, "language": "en"|"de"|"mixed"}],
+  "requirements": [{"statement": str, "priority": str|null, "status": str|null, "chunk": int, "language": "en"|"de"|"mixed"}],
+  "findings": [{"statement": str, "severity": str|null, "theme": str|null, "status": str|null, "chunk": int, "language": "en"|"de"|"mixed"}],
+  "deliverables": [{"name": str, "type": str|null, "due_date": str|null, "engagement_title": str|null, "chunk": int, "language": "en"|"de"|"mixed"}]
 }
 "chunk" is the number in [brackets] of the excerpt the record was read from.
 """

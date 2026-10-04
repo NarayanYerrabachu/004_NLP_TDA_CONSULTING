@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any
+from typing import Any, Callable
 
 import httpx
 
@@ -13,14 +13,17 @@ from nlp_tda.ingest.chunking import Chunk
 from nlp_tda.models import ExtractionBundle
 
 
+class LLMUnavailable(RuntimeError):
+    """The local LLM is switched on but gave no usable answer."""
+
+
 class OllamaClient:
     def __init__(self, base_url: str | None = None, model: str | None = None) -> None:
         self.base_url = (base_url or settings.ollama_base_url).rstrip("/")
         self.model = model or settings.ollama_model
 
     def available(self) -> bool:
-        if settings.force_mock_llm:
-            return False
+        """The Ollama server answers. (Whether to use it at all is ``settings.force_mock_llm``.)"""
         try:
             r = httpx.get(f"{self.base_url}/api/tags", timeout=2.0)
             return r.status_code == 200
@@ -225,42 +228,54 @@ def extract_entities(
     theme_labels: list[str],
     *,
     prefer_de: bool = False,
+    on_batch: Callable[[int, int], None] | None = None,
 ) -> tuple[ExtractionBundle, str, int]:
     """Extract entities from every chunk of the pack, one LLM call per batch.
 
-    Returns (bundle, llm_mode, chunks_read). llm_mode: "mock" (no LLM), "ollama" (every batch
-    answered), "ollama-partial" (some batches failed and were skipped), "mock-fallback"
-    (every batch failed). Records from the LLM point at the chunk they were read from, and
-    requirements / findings stated twice in other words are merged.
+    Returns (bundle, llm_mode, chunks_read). llm_mode: "mock" (``force_mock_llm``: fixture records,
+    no LLM), "ollama" (every batch answered), "ollama-partial" (some batches failed and were
+    skipped). Raises ``LLMUnavailable`` when the LLM is switched on but unreachable or answers no
+    batch: mock records never stand in for real results.
+
+    Records from the LLM point at the chunk they were read from, requirements / findings stated
+    twice in other words are merged, and confidence is set from the evidence (see ``_score``).
     """
-    chunk_texts = [c.text for c in chunks]
+    if settings.force_mock_llm:
+        return mock_extract([c.text for c in chunks], theme_labels), "mock", len(chunks)
     client = OllamaClient()
     if not client.available():
-        return mock_extract(chunk_texts, theme_labels), "mock", len(chunks)
+        raise LLMUnavailable(
+            f"The local LLM at {client.base_url} is not reachable. Start it, or set "
+            "NLP_TDA_FORCE_MOCK_LLM=true to run with fixture records."
+        )
 
     batches = _batches(chunks)
     merged = ExtractionBundle()
-    seen: set[tuple[str, str]] = set()
+    seen: dict[tuple[str, str], Any] = {}
     failed = 0
-    for batch in batches:
+    last_error = ""
+    for done, batch in enumerate(batches):
+        if on_batch:
+            on_batch(done, len(batches))
         system, user = build_extraction_prompt(
             chunk_texts=[c.text for c in batch],
             theme_labels=theme_labels,
             prefer_de=prefer_de,
         )
         try:
-            bundle = ExtractionBundle.model_validate(client.chat_json(system, user))
-        except Exception:
+            bundle = ExtractionBundle.model_validate(_without_confidence(client.chat_json(system, user)))
+        except Exception as exc:
             failed += 1
+            last_error = str(exc)
             continue
         _attach_sources(bundle, batch)
         _merge(merged, bundle, seen)
 
-    chunks_read = sum(len(b) for b in batches)
     if batches and failed == len(batches):
-        return mock_extract(chunk_texts, theme_labels), "mock-fallback", chunks_read
+        raise LLMUnavailable(f"The local LLM ({client.model}) answered none of {failed} calls: {last_error}")
     merge_near_duplicates(merged)
-    return merged, "ollama-partial" if failed else "ollama", chunks_read
+    _score(merged)
+    return merged, "ollama-partial" if failed else "ollama", sum(len(b) for b in batches)
 
 
 # The field that names a record, per entity list: the same name twice is one record.
@@ -272,6 +287,11 @@ _NAME_FIELD = {
     "findings": "statement",
     "deliverables": "name",
 }
+
+# Confidence a reviewer can rely on, from what backs the record (the LLM's own number is ignored:
+# it rates nearly everything 1.0).
+_EVIDENCE_CONFIDENCE = {"verbatim": 0.9, "cited": 0.6, "none": 0.3}
+_REPEATED_BONUS = 0.1  # the record came out of more than one LLM call or wording
 
 
 def _batches(chunks: list[Chunk]) -> list[list[Chunk]]:
@@ -288,31 +308,52 @@ def _norm(text: object) -> str:
     return " ".join(str(text).lower().split())
 
 
-def _attach_sources(bundle: ExtractionBundle, batch: list[Chunk]) -> None:
-    """Point each record at the chunk it was read from.
+def _without_confidence(raw: dict[str, Any]) -> dict[str, Any]:
+    """The LLM's answer without its own confidence values (any scale, e.g. 95, would fail validation)."""
+    for records in raw.values():
+        if isinstance(records, list):
+            for record in records:
+                if isinstance(record, dict):
+                    record.pop("confidence", None)
+    return raw
 
-    The excerpt that contains the record's name or statement word for word wins; otherwise the
-    excerpt number the LLM cited. A record with neither has no source (never an invented one).
+
+def _attach_sources(bundle: ExtractionBundle, batch: list[Chunk]) -> None:
+    """Point each record at the chunk it was read from, and note how strong that evidence is.
+
+    The excerpt that contains the record's name or statement word for word wins ("verbatim");
+    otherwise the excerpt number the LLM cited ("cited"). A record with neither has no source
+    (never an invented one).
     """
     texts = [_norm(c.text) for c in batch]
     for field, name_field in _NAME_FIELD.items():
         for item in getattr(bundle, field):
             name = _norm(getattr(item, name_field))
             chunk = next((c for c, text in zip(batch, texts) if name and name in text), None)
+            item.evidence = "verbatim" if chunk else "none"
             if chunk is None:
                 digits = "".join(ch for ch in str(item.chunk) if ch.isdigit())
                 number = int(digits) if digits else 0
-                chunk = batch[number - 1] if 1 <= number <= len(batch) else None
+                if 1 <= number <= len(batch):
+                    chunk, item.evidence = batch[number - 1], "cited"
             item.source_artifact_id = chunk.artifact_id if chunk else None
             item.span_ref = chunk.span_ref if chunk else None
 
 
-def _merge(merged: ExtractionBundle, bundle: ExtractionBundle, seen: set[tuple[str, str]]) -> None:
+def _merge(merged: ExtractionBundle, bundle: ExtractionBundle, seen: dict[tuple[str, str], Any]) -> None:
     """Add a batch's records to ``merged``; a record already named by an earlier batch is kept once."""
     for field, name_field in _NAME_FIELD.items():
         for item in getattr(bundle, field):
             key = (field, _norm(getattr(item, name_field)))
             if key in seen:
+                seen[key].mentions += 1
                 continue
-            seen.add(key)
+            seen[key] = item
             getattr(merged, field).append(item)
+
+
+def _score(bundle: ExtractionBundle) -> None:
+    for field in _NAME_FIELD:
+        for item in getattr(bundle, field):
+            base = _EVIDENCE_CONFIDENCE[item.evidence or "none"]
+            item.confidence = round(min(base + (_REPEATED_BONUS if item.mentions > 1 else 0.0), 1.0), 2)

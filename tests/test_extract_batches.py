@@ -6,7 +6,7 @@ import pytest
 from nlp_tda import ask
 from nlp_tda.config import settings
 from nlp_tda.extract import dedupe
-from nlp_tda.extract.ollama_client import OllamaClient, extract_entities
+from nlp_tda.extract.ollama_client import LLMUnavailable, OllamaClient, extract_entities
 from nlp_tda.ingest.chunking import Chunk
 from nlp_tda.models import ExtractionBundle
 
@@ -38,6 +38,7 @@ def fake_llm(monkeypatch):
     monkeypatch.setattr(settings, "extract_batch_chunks", 3)
     monkeypatch.setattr(settings, "extract_max_batches", 0)
     monkeypatch.setattr(settings, "use_hash_embeddings", True)
+    monkeypatch.setattr(settings, "force_mock_llm", False)
     return calls
 
 
@@ -48,6 +49,7 @@ def test_every_chunk_is_extracted_not_only_the_first(fake_llm):
     assert len(fake_llm) == 7                                    # 19 chunks, 3 per call
     assert {r.statement for r in bundle.requirements} == {f"Requirement from chunk-{i}" for i in range(20) if i != 7}
     assert len(bundle.clients) == 1                              # named in every batch, kept once
+    assert bundle.clients[0].mentions == 7
 
 
 def test_a_failed_batch_is_skipped_and_reported(fake_llm):
@@ -100,12 +102,49 @@ def test_records_point_at_the_chunk_they_were_read_from(monkeypatch):
     monkeypatch.setattr(OllamaClient, "available", lambda self: True)
     monkeypatch.setattr(OllamaClient, "chat_json", chat_json)
     monkeypatch.setattr(settings, "use_hash_embeddings", True)
+    monkeypatch.setattr(settings, "force_mock_llm", False)
     chunks = _chunks(["Kickoff agenda", "Sponsor: Dr. Lena  Hartmann (Nordwind)", "Three planning tools are in use"])
     bundle, _, _ = extract_entities(chunks, [])
     assert (bundle.people[0].source_artifact_id, bundle.people[0].span_ref) == ("doc1", chunks[1].span_ref)
     assert (bundle.findings[0].source_artifact_id, bundle.findings[0].span_ref) == ("doc2", chunks[2].span_ref)
     assert bundle.requirements[0].source_artifact_id is None and bundle.requirements[0].span_ref is None
     assert "chunk" not in bundle.people[0].model_dump()                             # the citation is not stored
+    # confidence follows the evidence, not the LLM's own number
+    assert (bundle.people[0].evidence, bundle.people[0].confidence) == ("verbatim", 0.9)
+    assert (bundle.findings[0].evidence, bundle.findings[0].confidence) == ("cited", 0.6)
+    assert (bundle.requirements[0].evidence, bundle.requirements[0].confidence) == ("none", 0.3)
+
+
+def test_the_llms_own_confidence_is_ignored_and_repeats_raise_it(fake_llm, monkeypatch):
+    def chat_json(self, system: str, user: str) -> dict:
+        return {"clients": [{"name": "Nordwind", "confidence": 95}]}      # out of range: must not fail the call
+
+    monkeypatch.setattr(OllamaClient, "chat_json", chat_json)
+    bundle, mode, _ = extract_entities(_chunks(["Nordwind kickoff", "notes", "more", "Nordwind again"]), [])
+    assert mode == "ollama"
+    assert (bundle.clients[0].mentions, bundle.clients[0].confidence) == (2, 1.0)   # verbatim 0.9 + repeated 0.1
+
+
+def test_an_unreachable_llm_fails_the_run_instead_of_returning_mock_records(monkeypatch):
+    monkeypatch.setattr(settings, "force_mock_llm", False)
+    monkeypatch.setattr(OllamaClient, "available", lambda self: False)
+    with pytest.raises(LLMUnavailable, match="not reachable"):
+        extract_entities(_chunks(["Nordwind kickoff notes"]), [])
+
+
+def test_an_llm_that_answers_no_batch_fails_the_run(fake_llm, monkeypatch):
+    def chat_json(self, system: str, user: str) -> dict:
+        raise RuntimeError("model 'qwen' not found")
+
+    monkeypatch.setattr(OllamaClient, "chat_json", chat_json)
+    with pytest.raises(LLMUnavailable, match="not found"):
+        extract_entities(_chunks(["Nordwind kickoff notes"]), [])
+
+
+def test_mock_mode_returns_the_fixture_records(monkeypatch):
+    monkeypatch.setattr(settings, "force_mock_llm", True)
+    bundle, mode, read = extract_entities(_chunks(["Nordwind kickoff notes"]), [])
+    assert mode == "mock" and read == 1 and bundle.clients[0].name == "Nordwind Logistics GmbH"
 
 
 def test_the_same_statement_in_other_words_is_one_record(monkeypatch):

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from nlp_tda.config import settings
 from nlp_tda.db import get_session
@@ -32,7 +32,11 @@ def run_pipeline(
     source_dir: Path | None = None,
     *,
     force_hash_embeddings: bool | None = None,
+    progress: Callable[..., None] | None = None,
 ) -> dict[str, Any]:
+    """Run the whole pipeline on a folder. ``progress(stage, done, total)`` is told each stage."""
+    report = progress or (lambda *_: None)
+    report("parsing")
     source = Path(source_dir or settings.fixtures_dir)
     if not source.exists():
         raise FileNotFoundError(f"Source directory not found: {source}")
@@ -74,6 +78,7 @@ def run_pipeline(
             )
         )
 
+    report("embedding")
     embeddings = embed_chunks(all_chunks, force_hash=force_hash_embeddings)
     store = ChunkStore()
     store.upsert_chunks(
@@ -82,6 +87,7 @@ def run_pipeline(
         run_id=run_id,
     )
 
+    report("themes")
     themes = discover_themes(all_chunks, embeddings)
     theme_labels = [t.label for t in themes]
 
@@ -89,7 +95,13 @@ def run_pipeline(
     blob = "\n".join(c.text for c in all_chunks[:20]).lower()
     prefer_de = sum(1 for w in ("und", "der", "die", "anforderung", "mandat") if w in blob) >= 2
 
-    bundle, llm_mode, chunks_extracted = extract_entities(all_chunks, theme_labels, prefer_de=prefer_de)
+    bundle, llm_mode, chunks_extracted = extract_entities(
+        all_chunks,
+        theme_labels,
+        prefer_de=prefer_de,
+        on_batch=lambda done, total: report("extracting", done, total),
+    )
+    report("saving")
 
     session = get_session()
     try:

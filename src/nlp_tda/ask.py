@@ -13,7 +13,7 @@ from nlp_tda.embed.chroma_store import ChunkStore
 from nlp_tda.embed.embeddings import embed_texts
 from nlp_tda.export.excel_export import DEFAULT_FILTER, export_excel
 from nlp_tda.models import ArtifactRow, ProposedEntity
-from nlp_tda.pipeline import run_pipeline
+from nlp_tda import jobs
 
 
 COMMAND_HELP = {
@@ -91,12 +91,12 @@ def handle_command(
         source = None
         if batch_id:
             source = uploads_root() / batch_id
-        result = run_pipeline(source)
-        return {
-            "kind": "pipeline",
-            "title": "Pipeline finished" if lang == "en" else "Pipeline fertig",
-            "result": result,
-        }
+        try:
+            job_id = jobs.start(source).job_id
+        except jobs.JobRunning as exc:
+            job_id = exc.job_id
+        # The page polls /api/pipeline/jobs/{job_id} and shows the result when the run completes.
+        return {"kind": "job", "job_id": job_id}
 
     if _matches(lower, ("list entities", "entities", "list", "stammdaten", "entities anzeigen")):
         return {"kind": "entities", **_list_entities(run_id=run_id)}
@@ -216,7 +216,22 @@ def _ask_library(question: str, *, lang: str = "en") -> dict[str, Any]:
         except Exception:
             pass
 
-    # Mock / extractive fallback
+    if not settings.force_mock_llm:
+        # The LLM is switched on but gave no answer: say so and show the excerpts, no canned text.
+        return {
+            "title": "Answer" if lang == "en" else "Antwort",
+            "question": question,
+            "answer": (
+                "The local language model is not reachable, so there is no written answer. "
+                "The most relevant excerpts are listed as sources."
+                if lang == "en"
+                else "Das lokale Sprachmodell ist nicht erreichbar, daher gibt es keine formulierte Antwort. "
+                "Die relevantesten Ausschnitte stehen unter Quellen."
+            ),
+            "sources": contexts,
+            "mode": "excerpts",
+        }
+
     answer = _mock_answer(question, contexts, lang=lang)
     return {
         "title": "Answer" if lang == "en" else "Antwort",
