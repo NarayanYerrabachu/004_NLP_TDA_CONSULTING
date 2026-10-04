@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ s.title }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=Sora:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #1c2430;
+      --muted: #5c6b7a;
+      --line: #d5dde6;
+      --paper: #f7f5f1;
+      --panel: #ffffff;
+      --soft: #eef3f7;
+      --accent: #0f6e56;
+      --accent-soft: #e3f2ec;
+      --warn: #9a6b16;
+      --display: "Fraunces", Georgia, serif;
+      --sans: "Sora", "Helvetica Neue", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      color: var(--ink);
+      background:
+        radial-gradient(1000px 520px at 8% -8%, #dce8e2 0%, transparent 55%),
+        radial-gradient(900px 480px at 100% 0%, #d9e3ef 0%, transparent 50%),
+        linear-gradient(180deg, #f3f6f8 0%, var(--paper) 40%, #eef1f4 100%);
+      min-height: 100vh;
+    }
+    header.appbar {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1.15rem 1.5rem 1rem;
+      border-bottom: 1px solid var(--line);
+      background: color-mix(in srgb, var(--panel) 82%, transparent);
+      backdrop-filter: blur(8px);
+      flex-wrap: wrap;
+    }
+    .brand-name {
+      font-family: var(--display);
+      font-size: 1.55rem;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+      margin: 0;
+    }
+    .brand-tag { margin: 0.25rem 0 0; color: var(--muted); max-width: 40rem; line-height: 1.4; font-size: 0.92rem; }
+    .note { margin: 0.45rem 0 0; font-size: 0.82rem; color: var(--warn); }
+    .nav { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .btn, button.btn, button {
+      appearance: none;
+      border: none;
+      border-radius: 8px;
+      padding: 0.55rem 0.9rem;
+      font: 600 0.88rem/1.1 var(--sans);
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn.secondary, button.secondary {
+      background: transparent;
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+    button:disabled { opacity: 0.55; cursor: wait; }
+    main { padding: 1.25rem 1.5rem 3rem; max-width: 720px; }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 1.1rem 1.15rem;
+      background: var(--panel);
+      margin-bottom: 1rem;
+      box-shadow: 0 1px 0 rgba(28, 36, 48, 0.04);
+    }
+    .card h2 {
+      margin: 0 0 0.85rem;
+      font-family: var(--display);
+      font-size: 1.2rem;
+      font-weight: 650;
+      letter-spacing: -0.01em;
+    }
+    label {
+      display: block;
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-bottom: 0.3rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    select, input[type="text"] {
+      width: 100%;
+      max-width: 28rem;
+      background: var(--soft);
+      color: var(--ink);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0.55rem 0.7rem;
+      margin-bottom: 0.85rem;
+      font: inherit;
+    }
+    .hint { color: var(--muted); font-size: 0.85rem; margin: -0.35rem 0 0.95rem; line-height: 1.4; }
+    .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .counts {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 0.55rem;
+      margin: 0.75rem 0 0.25rem;
+    }
+    .count {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 0.65rem 0.75rem;
+      background: var(--soft);
+    }
+    .count .n {
+      font-family: var(--display);
+      font-size: 1.45rem;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+    }
+    .count .k { color: var(--muted); font-size: 0.75rem; font-weight: 600; margin-top: 0.15rem; }
+    #result { display: none; }
+    #result.show { display: block; border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); background: linear-gradient(180deg, #f7fcf9, var(--panel)); }
+    .path { font-size: 0.85rem; color: var(--muted); word-break: break-all; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem; }
+    @media (max-width: 640px) {
+      header.appbar, main { padding-left: 1rem; padding-right: 1rem; }
+    }
+  </style>
+</head>
+<body>
+  <header class="appbar">
+    <div>
+      <h1 class="brand-name">{{ s.title }}</h1>
+      <p class="brand-tag">{{ s.subtitle }}</p>
+      <p class="note">{{ s.note }}</p>
+    </div>
+    <nav class="nav">
+      <a class="btn secondary" href="/export?lang={{ other_lang }}">{{ s.lang_toggle }}</a>
+      <a class="btn secondary" href="/?lang={{ lang }}">{{ s.nav_ingest }}</a>
+      <a class="btn secondary" href="/review?lang={{ lang }}">{{ s.nav_review }}</a>
+    </nav>
+  </header>
+  <main>
+    <div class="card">
+      <h2>{{ s.config }}</h2>
+      <label for="filter">{{ s.filter_label }}</label>
+      <select id="filter">
+        <option value="accepted_edited" selected>{{ s.filter_accepted_edited }}</option>
+        <option value="accepted">{{ s.filter_accepted }}</option>
+        <option value="proposed">{{ s.filter_proposed }}</option>
+        <option value="all">{{ s.filter_all }}</option>
+      </select>
+      <p class="hint" id="filterHint">{{ s.filter_hint_accepted_edited }}</p>
+
+      <label for="runId">{{ s.run_label }}</label>
+      <input id="runId" type="text" placeholder="{{ s.run_placeholder }}" value="{{ run_id }}" />
+
+      <div class="actions">
+        <button type="button" class="secondary" id="previewBtn">{{ s.preview }}</button>
+        <button type="button" id="exportBtn">{{ s.generate }}</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>{{ s.counts_title }}</h2>
+      <p class="hint" id="countsMeta">{{ s.counts_empty }}</p>
+      <div class="counts" id="counts"></div>
+    </div>
+
+    <div class="card" id="result">
+      <h2>{{ s.ready }}</h2>
+      <p id="resultMeta"></p>
+      <p class="path" id="resultPath"></p>
+      <a class="btn" id="downloadLink" href="#">{{ s.download }}</a>
+    </div>
+  </main>
+  <script>
+    const LANG = {{ lang|tojson }};
+    const HINTS = {
+      accepted_edited: {{ s.filter_hint_accepted_edited|tojson }},
+      accepted: {{ s.filter_hint_accepted|tojson }},
+      proposed: {{ s.filter_hint_proposed|tojson }},
+      all: {{ s.filter_hint_all|tojson }},
+    };
+    const LABELS = {
+      client: {{ s.entity_client|tojson }},
+      engagement: {{ s.entity_engagement|tojson }},
+      person: {{ s.entity_person|tojson }},
+      artifact: {{ s.entity_artifact|tojson }},
+      requirement: {{ s.entity_requirement|tojson }},
+      finding: {{ s.entity_finding|tojson }},
+      deliverable: {{ s.entity_deliverable|tojson }},
+      theme: {{ s.entity_theme|tojson }},
+    };
+    const ORDER = ['client','engagement','person','artifact','requirement','finding','deliverable','theme'];
+
+    const filterEl = document.getElementById('filter');
+    const runEl = document.getElementById('runId');
+    const hintEl = document.getElementById('filterHint');
+    const countsEl = document.getElementById('counts');
+    const countsMeta = document.getElementById('countsMeta');
+    const result = document.getElementById('result');
+
+    filterEl.onchange = () => {
+      hintEl.textContent = HINTS[filterEl.value] || '';
+      preview();
+    };
+    document.getElementById('previewBtn').onclick = preview;
+    document.getElementById('exportBtn').onclick = generate;
+    runEl.addEventListener('change', preview);
+
+    function qs() {
+      const p = new URLSearchParams();
+      p.set('filter_mode', filterEl.value);
+      if (runEl.value.trim()) p.set('run_id', runEl.value.trim());
+      return p.toString();
+    }
+
+    function renderCounts(data) {
+      countsMeta.textContent = `${data.entity_rows || 0} records · ${data.counts?.artifact || 0} documents`;
+      countsEl.innerHTML = '';
+      for (const key of ORDER) {
+        const n = (data.counts && data.counts[key]) || 0;
+        const div = document.createElement('div');
+        div.className = 'count';
+        div.innerHTML = `<div class="n">${n}</div><div class="k">${LABELS[key] || key}</div>`;
+        countsEl.appendChild(div);
+      }
+    }
+
+    async function preview() {
+      const res = await fetch('/api/export/preview?' + qs());
+      const data = await res.json();
+      if (!res.ok) { alert(data.detail || 'Preview failed'); return; }
+      renderCounts(data);
+    }
+
+    async function generate() {
+      const btn = document.getElementById('exportBtn');
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/export/excel?' + qs(), { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Export failed');
+        renderCounts(data);
+        result.classList.add('show');
+        document.getElementById('resultMeta').innerHTML =
+          `<code>${data.filename}</code> · ${data.total_entities} records · ${data.counts.artifact} documents`;
+        document.getElementById('resultPath').textContent = data.path;
+        const a = document.getElementById('downloadLink');
+        a.href = `/api/export/excel/${data.file_id}`;
+        a.download = data.filename;
+      } catch (err) {
+        alert(err.message || String(err));
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    preview();
+  </script>
+</body>
+</html>

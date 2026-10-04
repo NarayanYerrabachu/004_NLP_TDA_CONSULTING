@@ -1,0 +1,26 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.DS_Store
+.env
+dist/
+build/
+**/_unzipped_*/
+
+# Runtime data (keep directory placeholders + seeded synthetic pack)
+data/master.db
+data/chroma/**
+!data/chroma/.gitkeep
+data/uploads/**
+!data/uploads/.gitkeep
+data/exports/**
+!data/exports/.gitkeep
+data/packs/**
+!data/packs/.gitkeep
+!data/packs/README.md
+!data/packs/synthetic_engagement_pack.zip
+*.db

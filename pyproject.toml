@@ -1,0 +1,44 @@
+[project]
+name = "nlp-tda"
+version = "0.1.0"
+description = "Local-first consulting master-data extraction with TDA structure discovery"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aiofiles>=25.1.0",
+    "chromadb>=1.5.9",
+    "extract-msg>=0.56.1",
+    "fastapi>=0.142.2",
+    "httpx>=0.28.1",
+    "jinja2>=3.1.6",
+    "numpy>=2.5.3",
+    "openpyxl>=3.1.5",
+    "pydantic>=2.13.5",
+    "pydantic-settings>=2.15.0",
+    "pymupdf>=1.28.2",
+    "python-docx>=1.2.0",
+    "python-multipart>=0.0.32",
+    "python-pptx>=1.0.2",
+    "ripser>=0.6.15",
+    "scikit-learn>=1.9.1",
+    "sentence-transformers>=6.1.0",
+    "sqlalchemy>=2.1.3",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[project.scripts]
+nlp-tda = "nlp_tda.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.12.23,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.16.10",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

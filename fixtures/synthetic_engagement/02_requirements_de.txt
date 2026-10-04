@@ -1,0 +1,6 @@
+Anforderungen — Nordwind Logistics GmbH
+
+1. Die Stammdatenqualität für Artikel und Standorte muss messbar verbessert werden.
+2. Ein Target Operating Model für Warehouse- und Transportplanung ist innerhalb von 12 Wochen zu definieren.
+3. Governance: klare End-to-End-Prozessverantwortung je Hub.
+4. Priorität hoch: Peak-Saison Escalation Paths dokumentieren.

@@ -1,0 +1,6 @@
+Findings — Discovery week 1 (SYNTHETIC)
+
+1. Planning tools are fragmented across three regional hubs with weak master-data ownership.
+2. Invoice reconciliation still depends on manual spreadsheets in two hubs.
+3. Severity medium-high: missing E2E process ownership increases escalation effort in peak season.
+4. Theme bridge: commercial SLAs reference technical warehouse KPIs inconsistently.

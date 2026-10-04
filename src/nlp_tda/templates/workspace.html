@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ s.title }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=Sora:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #1c2430;
+      --muted: #5c6b7a;
+      --line: #d5dde6;
+      --paper: #f7f5f1;
+      --panel: #ffffff;
+      --soft: #eef3f7;
+      --accent: #0f6e56;
+      --accent-soft: #e3f2ec;
+      --warn: #9a6b16;
+      --warn-soft: #f7efd9;
+      --danger: #a33b3b;
+      --display: "Fraunces", Georgia, serif;
+      --sans: "Sora", "Helvetica Neue", sans-serif;
+      --radius: 12px;
+      --shadow: 0 1px 0 rgba(28, 36, 48, 0.04);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: var(--sans);
+      color: var(--ink);
+      background:
+        radial-gradient(1000px 520px at 8% -8%, #dce8e2 0%, transparent 55%),
+        radial-gradient(900px 480px at 100% 0%, #d9e3ef 0%, transparent 50%),
+        linear-gradient(180deg, #f3f6f8 0%, var(--paper) 40%, #eef1f4 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    a { color: var(--accent); }
+    header.appbar {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1.15rem 1.5rem 1rem;
+      border-bottom: 1px solid var(--line);
+      background: color-mix(in srgb, var(--panel) 82%, transparent);
+      backdrop-filter: blur(8px);
+    }
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+    .brand-name {
+      font-family: var(--display);
+      font-size: 1.55rem;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      margin: 0;
+    }
+    .brand-tag {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+      max-width: 36rem;
+      line-height: 1.4;
+    }
+    .nav {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .btn, button.btn {
+      appearance: none;
+      border: none;
+      border-radius: 8px;
+      padding: 0.55rem 0.9rem;
+      font: 600 0.88rem/1.1 var(--sans);
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn.primary { background: var(--accent); color: #fff; }
+    .btn.primary:hover { background: #0c5c48; }
+    .btn.secondary {
+      background: transparent;
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+    .btn.secondary:hover { background: var(--soft); }
+    .btn:disabled { opacity: 0.55; cursor: wait; }
+    .steps {
+      display: flex;
+      gap: 0.75rem;
+      padding: 0.75rem 1.5rem;
+      border-bottom: 1px solid var(--line);
+      background: color-mix(in srgb, var(--panel) 70%, transparent);
+      flex-wrap: wrap;
+    }
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 500;
+    }
+    .step .n {
+      width: 1.35rem;
+      height: 1.35rem;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      background: var(--panel);
+    }
+    .step.active { color: var(--ink); }
+    .step.active .n {
+      background: var(--accent-soft);
+      border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+      color: var(--accent);
+      font-weight: 700;
+    }
+    .workspace {
+      flex: 1;
+      display: grid;
+      grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.15fr) minmax(300px, 1.1fr);
+      min-height: 0;
+    }
+    .col {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      border-right: 1px solid var(--line);
+      background: color-mix(in srgb, var(--panel) 88%, transparent);
+    }
+    .col:last-child { border-right: none; }
+    .col-head {
+      padding: 1.1rem 1.15rem 0.85rem;
+      border-bottom: 1px solid var(--line);
+    }
+    .col-kicker {
+      margin: 0 0 0.25rem;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .col-head h2 {
+      margin: 0;
+      font-family: var(--display);
+      font-size: 1.28rem;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+    }
+    .col-head p {
+      margin: 0.35rem 0 0;
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.45;
+    }
+    .col-body {
+      flex: 1;
+      overflow: auto;
+      padding: 1rem 1.15rem 1.4rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+    .drop {
+      border: 1.5px dashed color-mix(in srgb, var(--accent) 35%, var(--line));
+      border-radius: var(--radius);
+      padding: 1.35rem 1rem;
+      text-align: center;
+      background:
+        linear-gradient(180deg, #f9fcfb 0%, #f2f7f5 100%);
+      transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+    }
+    .drop.drag {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
+    }
+    .drop h3 {
+      margin: 0 0 0.35rem;
+      font-family: var(--display);
+      font-size: 1.08rem;
+      font-weight: 650;
+    }
+    .drop p {
+      margin: 0 0 0.95rem;
+      color: var(--muted);
+      font-size: 0.86rem;
+      line-height: 1.4;
+    }
+    .drop-actions {
+      display: flex;
+      gap: 0.45rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .hint-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+    .count-pill {
+      background: var(--soft);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 0.2rem 0.55rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--ink);
+    }
+    .doc {
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .doc:last-child { border-bottom: none; }
+    .doc-title {
+      font-weight: 600;
+      font-size: 0.92rem;
+      margin: 0 0 0.25rem;
+    }
+    .doc-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      align-items: center;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 6px;
+      padding: 0.12rem 0.4rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      background: var(--soft);
+      color: var(--muted);
+    }
+    .tag.ok { background: var(--accent-soft); color: var(--accent); }
+    .tag.warn { background: var(--warn-soft); color: var(--warn); }
+    .doc-prev {
+      margin: 0.4rem 0 0;
+      color: var(--muted);
+      font-size: 0.8rem;
+      line-height: 1.4;
+    }
+    .empty {
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.5;
+      padding: 0.35rem 0;
+    }
+    .actions-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+    }
+    .action-tile {
+      text-align: left;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 10px;
+      padding: 0.75rem 0.8rem;
+      cursor: pointer;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+    .action-tile:hover {
+      border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+      background: #fbfcfb;
+    }
+    .action-tile strong {
+      display: block;
+      font-size: 0.88rem;
+      margin-bottom: 0.2rem;
+    }
+    .action-tile span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.35;
+    }
+    .action-tile.wide { grid-column: 1 / -1; }
+    .chat {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      flex: 1;
+      min-height: 12rem;
+      max-height: 42vh;
+      overflow: auto;
+      padding-right: 0.15rem;
+    }
+    .msg {
+      max-width: 94%;
+      padding: 0.7rem 0.85rem;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      line-height: 1.45;
+      white-space: pre-wrap;
+    }
+    .msg.user {
+      align-self: flex-end;
+      background: var(--ink);
+      color: #f5f7fa;
+      border-bottom-right-radius: 4px;
+    }
+    .msg.bot {
+      align-self: flex-start;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-bottom-left-radius: 4px;
+      box-shadow: var(--shadow);
+    }
+    .msg .who {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 0.3rem;
+      opacity: 0.7;
+    }
+    .composer {
+      margin-top: auto;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.5rem;
+      align-items: end;
+    }
+    .composer textarea {
+      width: 100%;
+      min-height: 4.6rem;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 0.7rem 0.8rem;
+      font: 400 0.9rem/1.4 var(--sans);
+      color: var(--ink);
+      background: var(--panel);
+    }
+    .composer textarea:focus {
+      outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
+      border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+    }
+    .result {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      padding: 0.9rem 0.95rem;
+      box-shadow: var(--shadow);
+      animation: rise 0.28s ease;
+    }
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .result h3 {
+      margin: 0 0 0.35rem;
+      font-family: var(--display);
+      font-size: 1.05rem;
+      font-weight: 650;
+    }
+    .result .lede {
+      margin: 0 0 0.65rem;
+      color: var(--muted);
+      font-size: 0.86rem;
+      line-height: 1.4;
+    }
+    .result .body {
+      margin: 0;
+      white-space: pre-wrap;
+      font-size: 0.86rem;
+      line-height: 1.45;
+      color: var(--ink);
+    }
+    .result .body.mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.78rem;
+      color: #334155;
+      background: var(--soft);
+      border-radius: 8px;
+      padding: 0.65rem 0.7rem;
+    }
+    .result-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: 0.75rem;
+    }
+    .status-line {
+      font-size: 0.82rem;
+      color: var(--muted);
+      min-height: 1.2em;
+    }
+    @media (max-width: 980px) {
+      .workspace { grid-template-columns: 1fr; }
+      .col { border-right: none; border-bottom: 1px solid var(--line); min-height: 55vh; }
+      header.appbar, .steps { padding-left: 1rem; padding-right: 1rem; }
+      .col-body, .col-head { padding-left: 1rem; padding-right: 1rem; }
+    }
+  </style>
+</head>
+<body>
+  <header class="appbar">
+    <div class="brand">
+      <h1 class="brand-name">{{ s.brand }}</h1>
+      <p class="brand-tag">{{ s.subtitle }}</p>
+    </div>
+    <nav class="nav" aria-label="{{ s.nav_label }}">
+      <a class="btn secondary" href="/?lang={{ other_lang }}">{{ s.lang_toggle }}</a>
+      <a class="btn secondary" href="/review?lang={{ lang }}">{{ s.nav_review }}</a>
+      <a class="btn secondary" href="/export?lang={{ lang }}">{{ s.nav_export }}</a>
+    </nav>
+  </header>
+
+  <div class="steps" aria-label="{{ s.steps_label }}">
+    <div class="step active"><span class="n">1</span> {{ s.step1 }}</div>
+    <div class="step active"><span class="n">2</span> {{ s.step2 }}</div>
+    <div class="step active"><span class="n">3</span> {{ s.step3 }}</div>
+  </div>
+
+  <div class="workspace">
+    <section class="col" aria-labelledby="lib-title">
+      <div class="col-head">
+        <p class="col-kicker">{{ s.left_kicker }}</p>
+        <h2 id="lib-title">{{ s.left_title }}</h2>
+        <p>{{ s.left_sub }}</p>
+      </div>
+      <div class="col-body">
+        <div id="drop" class="drop" tabindex="0">
+          <h3>{{ s.drop_title }}</h3>
+          <p>{{ s.drop_hint }}</p>
+          <input id="fileInput" type="file" multiple hidden
+            accept=".pdf,.docx,.pptx,.xlsx,.csv,.txt,.md,.eml,.msg,.zip,application/pdf,application/zip,text/*,message/rfc822" />
+          <div class="drop-actions">
+            <button type="button" class="btn primary" id="pickBtn">{{ s.pick }}</button>
+            <button type="button" class="btn secondary" id="demoBtn">{{ s.demo }}</button>
+          </div>
+        </div>
+        <div class="hint-bar">
+          <button type="button" class="btn secondary" id="refreshLib">{{ s.refresh }}</button>
+          <span class="count-pill" id="libCount">0 {{ s.docs_word }}</span>
+        </div>
+        <div class="status-line" id="uploadStatus"></div>
+        <div id="libraryList" class="empty">{{ s.lib_empty }}</div>
+      </div>
+    </section>
+
+    <section class="col" aria-labelledby="ask-title">
+      <div class="col-head">
+        <p class="col-kicker">{{ s.mid_kicker }}</p>
+        <h2 id="ask-title">{{ s.mid_title }}</h2>
+        <p>{{ s.mid_sub }}</p>
+      </div>
+      <div class="col-body">
+        <div class="actions-row">
+          <button type="button" class="action-tile wide" data-cmd="run pipeline">
+            <strong>{{ s.cmd_run }}</strong>
+            <span>{{ s.cmd_run_hint }}</span>
+          </button>
+          <button type="button" class="action-tile" data-cmd="list entities">
+            <strong>{{ s.cmd_list }}</strong>
+            <span>{{ s.cmd_list_hint }}</span>
+          </button>
+          <button type="button" class="action-tile" data-cmd="export excel">
+            <strong>{{ s.cmd_export }}</strong>
+            <span>{{ s.cmd_export_hint }}</span>
+          </button>
+        </div>
+        <div id="chat" class="chat" aria-live="polite"></div>
+        <div class="composer">
+          <textarea id="askInput" placeholder="{{ s.ask_placeholder }}" aria-label="{{ s.ask_placeholder }}"></textarea>
+          <button type="button" class="btn primary" id="askBtn">{{ s.send }}</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="col" aria-labelledby="out-title">
+      <div class="col-head">
+        <p class="col-kicker">{{ s.right_kicker }}</p>
+        <h2 id="out-title">{{ s.right_title }}</h2>
+        <p>{{ s.right_sub }}</p>
+      </div>
+      <div class="col-body">
+        <div id="output" class="empty">{{ s.out_empty }}</div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const LANG = {{ lang|tojson }};
+    const STR = {{ s|tojson }};
+
+    let batchId = null;
+    let lastRunId = null;
+
+    const drop = document.getElementById('drop');
+    const fileInput = document.getElementById('fileInput');
+    const libraryList = document.getElementById('libraryList');
+    const uploadStatus = document.getElementById('uploadStatus');
+    const chat = document.getElementById('chat');
+    const output = document.getElementById('output');
+    const askInput = document.getElementById('askInput');
+
+    document.getElementById('pickBtn').onclick = () => fileInput.click();
+    fileInput.onchange = () => { if (fileInput.files?.length) uploadFiles(fileInput.files); };
+    ;['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('drag'); }));
+    ;['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('drag'); }));
+    drop.addEventListener('drop', e => { if (e.dataTransfer?.files?.length) uploadFiles(e.dataTransfer.files); });
+    drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
+    document.getElementById('refreshLib').onclick = loadLibrary;
+    document.getElementById('demoBtn').onclick = () => sendCommand('run pipeline');
+    document.getElementById('askBtn').onclick = submitAsk;
+    askInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitAsk(); }
+    });
+    document.querySelectorAll('.action-tile').forEach(btn => {
+      btn.onclick = () => sendCommand(btn.dataset.cmd);
+    });
+
+    function escapeHtml(s) {
+      return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function humanStatus(status) {
+      const map = {
+        parsed: STR.status_ok,
+        parsed_with_warning: STR.status_warn,
+        warning: STR.status_warn,
+        expanded: STR.status_zip,
+        error: STR.status_error,
+        later: STR.status_later,
+        unsupported: STR.status_unsupported,
+      };
+      return map[status] || status;
+    }
+
+    function tagClass(status) {
+      if (['parsed', 'expanded', 'ok'].includes(status)) return 'ok';
+      if (['warning', 'parsed_with_warning', 'later', 'unsupported'].includes(status)) return 'warn';
+      return '';
+    }
+
+    async function uploadFiles(fileList) {
+      const fd = new FormData();
+      for (const f of fileList) fd.append('files', f);
+      uploadStatus.textContent = STR.uploading;
+      try {
+        const res = await fetch('/api/ingest/upload', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Upload failed');
+        batchId = data.batch_id;
+        uploadStatus.textContent = STR.uploaded_fmt
+          .replace('{ok}', data.parsed_ok)
+          .replace('{total}', data.file_count);
+        renderUploadFiles(data.files || []);
+        pushOutput({
+          title: STR.uploaded,
+          lede: STR.uploaded_next,
+          body: (data.files || []).map(f => `• ${f.name} — ${humanStatus(f.status)}`).join('\n'),
+        });
+        addBubble('bot', STR.uploaded_chat);
+      } catch (err) {
+        uploadStatus.textContent = err.message || String(err);
+      }
+    }
+
+    function renderUploadFiles(files) {
+      const flat = [];
+      for (const f of files) {
+        flat.push(f);
+        if (f.children) flat.push(...f.children.map(c => ({...c, name: '↳ ' + c.name})));
+      }
+      document.getElementById('libCount').textContent = `${flat.length} ${STR.docs_word}`;
+      if (!flat.length) {
+        libraryList.className = 'empty';
+        libraryList.textContent = STR.lib_empty;
+        return;
+      }
+      libraryList.className = '';
+      libraryList.innerHTML = flat.map(f => `
+        <article class="doc">
+          <p class="doc-title">${escapeHtml(f.name)}</p>
+          <div class="doc-meta">
+            <span class="tag ${tagClass(f.status)}">${escapeHtml(humanStatus(f.status))}</span>
+            <span>${escapeHtml((f.detected_type || '').toUpperCase())}</span>
+          </div>
+          ${f.message && f.message !== 'OK' ? `<p class="doc-prev">${escapeHtml(f.message)}</p>` : ''}
+        </article>`).join('');
+    }
+
+    async function loadLibrary() {
+      try {
+        const res = await fetch('/api/library');
+        const data = await res.json();
+        document.getElementById('libCount').textContent = `${data.count || 0} ${STR.docs_word}`;
+        if (!data.documents?.length) {
+          libraryList.className = 'empty';
+          libraryList.textContent = STR.lib_empty;
+          return;
+        }
+        libraryList.className = '';
+        libraryList.innerHTML = data.documents.map(d => `
+          <article class="doc">
+            <p class="doc-title">${escapeHtml(d.title)}</p>
+            <div class="doc-meta">
+              <span class="tag ok">${escapeHtml((d.mime_hint || '').toUpperCase())}</span>
+              <span>${escapeHtml(STR.from_run)} ${escapeHtml(d.run_id)}</span>
+            </div>
+            <p class="doc-prev">${escapeHtml(d.preview || '')}</p>
+          </article>`).join('');
+      } catch (err) {
+        libraryList.className = 'empty';
+        libraryList.textContent = err.message || String(err);
+      }
+    }
+
+    function addBubble(role, text) {
+      const div = document.createElement('div');
+      div.className = 'msg ' + (role === 'user' ? 'user' : 'bot');
+      div.innerHTML = `<span class="who">${escapeHtml(role === 'user' ? STR.you : STR.assistant)}</span>${escapeHtml(text)}`;
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function ensureOutput() {
+      if (output.classList.contains('empty')) {
+        output.classList.remove('empty');
+        output.innerHTML = '';
+      }
+    }
+
+    function pushOutput(card) {
+      ensureOutput();
+      const el = document.createElement('article');
+      el.className = 'result';
+      let actions = '';
+      if (card.download_url) {
+        actions += `<a class="btn primary" href="${card.download_url}">${escapeHtml(STR.download)}</a>`;
+      }
+      if (card.run_id) {
+        actions += `<a class="btn secondary" href="/review?lang=${LANG}&run_id=${encodeURIComponent(card.run_id)}">${escapeHtml(STR.open_review)}</a>`;
+        actions += `<a class="btn secondary" href="/export?lang=${LANG}&run_id=${encodeURIComponent(card.run_id)}">${escapeHtml(STR.nav_export)}</a>`;
+      }
+      el.innerHTML = `
+        <h3>${escapeHtml(card.title || STR.right_title)}</h3>
+        ${card.lede ? `<p class="lede">${escapeHtml(card.lede)}</p>` : ''}
+        <div class="body ${card.mono ? 'mono' : ''}">${escapeHtml(card.body || '')}</div>
+        ${actions ? `<div class="result-actions">${actions}</div>` : ''}`;
+      output.prepend(el);
+    }
+
+    async function submitAsk() {
+      const text = askInput.value.trim();
+      if (!text) return;
+      askInput.value = '';
+      await sendCommand(text);
+    }
+
+    async function sendCommand(text) {
+      addBubble('user', text === 'run pipeline' ? STR.cmd_run : (text === 'list entities' ? STR.cmd_list : (text === 'export excel' ? STR.cmd_export : text)));
+      addBubble('bot', STR.thinking);
+      const thinking = chat.lastChild;
+      try {
+        const res = await fetch('/api/ask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, lang: LANG, batch_id: batchId, run_id: lastRunId }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Request failed');
+        thinking.remove();
+        renderAskResult(data);
+      } catch (err) {
+        thinking.querySelector('.who')?.remove();
+        thinking.textContent = '';
+        thinking.innerHTML = `<span class="who">${escapeHtml(STR.assistant)}</span>${escapeHtml(err.message || String(err))}`;
+      }
+    }
+
+    function renderAskResult(data) {
+      const kind = data.kind;
+      if (kind === 'help' || kind === 'status') {
+        const body = kind === 'help'
+          ? (data.lines || []).map(l => `• ${l}`).join('\n')
+          : STR.status_fmt
+              .replace('{docs}', data.documents)
+              .replace('{ents}', data.entities)
+              .replace('{chunks}', data.chunks);
+        addBubble('bot', body);
+        pushOutput({ title: data.title || STR.right_title, body });
+        if (kind === 'status') loadLibrary();
+        return;
+      }
+      if (kind === 'pipeline') {
+        const r = data.result || {};
+        lastRunId = r.run_id;
+        const summary = STR.pipeline_fmt
+          .replace('{docs}', r.documents)
+          .replace('{ents}', r.entities)
+          .replace('{themes}', r.themes)
+          .replace('{mode}', r.llm_mode);
+        addBubble('bot', summary);
+        pushOutput({
+          title: STR.pipeline_title,
+          lede: STR.pipeline_lede,
+          body: summary,
+          run_id: r.run_id,
+        });
+        loadLibrary();
+        return;
+      }
+      if (kind === 'entities') {
+        const lines = (data.entities || []).map(e =>
+          `• ${labelType(e.entity_type)}: ${e.title}`
+        );
+        const summary = STR.entities_fmt.replace('{n}', data.count);
+        addBubble('bot', summary + (lines.length ? '\n' + lines.slice(0, 8).join('\n') : ''));
+        pushOutput({
+          title: STR.entities_title,
+          lede: summary,
+          body: lines.join('\n') || STR.none_yet,
+          run_id: lastRunId,
+        });
+        return;
+      }
+      if (kind === 'export') {
+        const r = data.result || {};
+        const summary = STR.export_fmt
+          .replace('{ents}', r.total_entities)
+          .replace('{arts}', r.counts?.artifact || 0);
+        addBubble('bot', summary);
+        pushOutput({
+          title: STR.export_title,
+          lede: summary,
+          body: STR.export_ready,
+          download_url: data.download_url,
+          run_id: r.run_id || lastRunId,
+        });
+        return;
+      }
+      if (kind === 'answer') {
+        addBubble('bot', data.answer || '');
+        pushOutput({
+          title: STR.answer_title,
+          lede: data.question,
+          body: data.answer || '',
+        });
+        return;
+      }
+      addBubble('bot', JSON.stringify(data));
+      pushOutput({ title: STR.right_title, body: JSON.stringify(data, null, 2), mono: true });
+    }
+
+    function labelType(t) {
+      return ({
+        client: STR.type_client,
+        engagement: STR.type_engagement,
+        person: STR.type_person,
+        requirement: STR.type_requirement,
+        finding: STR.type_finding,
+        deliverable: STR.type_deliverable,
+        theme: STR.type_theme,
+        artifact: STR.type_artifact,
+      })[t] || t;
+    }
+
+    loadLibrary();
+  </script>
+</body>
+</html>
