@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import shutil
 import uuid
 from dataclasses import asdict
@@ -25,6 +26,21 @@ def create_batch() -> Path:
     batch_id = uuid.uuid4().hex[:12]
     path = uploads_root() / batch_id
     path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+_BATCH_ID = re.compile(r"[0-9a-f]{12}")
+
+
+def batch_dir(batch_id: str) -> Path:
+    """The folder of an upload batch.
+
+    ``batch_id`` comes from the request: anything that is not the id of an existing batch
+    (e.g. ``../..``) raises ValueError, so it can never name another folder on the server.
+    """
+    path = uploads_root() / batch_id
+    if not _BATCH_ID.fullmatch(batch_id) or not path.is_dir():
+        raise ValueError("Unknown upload batch")
     return path
 
 
@@ -60,6 +76,7 @@ def save_upload(batch_dir: Path, filename: str, data: bytes) -> dict[str, Any]:
         try:
             extracted = expand_zip(zip_path, expand_dir)
         except Exception as exc:
+            zip_path.unlink(missing_ok=True)  # a refused archive must not be picked up by a later run
             return {
                 "name": safe_name,
                 "path": str(zip_path),
@@ -174,6 +191,4 @@ def batch_summary(files: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def clear_batch(batch_id: str) -> None:
-    path = uploads_root() / batch_id
-    if path.exists():
-        shutil.rmtree(path)
+    shutil.rmtree(batch_dir(batch_id))

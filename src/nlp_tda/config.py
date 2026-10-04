@@ -34,6 +34,13 @@ class Settings(BaseSettings):
 
     host: str = "0.0.0.0"
     port: int = 38417
+    # When set, every page and API call needs this password (HTTP Basic, any user name);
+    # /api/health stays open for the container health check. Empty = no login (local use only).
+    auth_password: str = ""
+    # Limits on what a request may make the server store or unpack.
+    upload_max_mb: int = 200
+    zip_max_files: int = 2000
+    zip_max_mb: int = 500  # unpacked size of one ZIP
 
     # With the embedding model, chunks are sized in its tokens: 0 = as many as the model reads
     # per input (a longer chunk would be cut off when embedded).

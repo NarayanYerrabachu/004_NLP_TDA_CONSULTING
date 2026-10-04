@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import base64
 import json
+import secrets
 from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from pydantic import BaseModel, Field
@@ -21,7 +23,7 @@ from nlp_tda.export.excel_export import (
     find_export,
 )
 from nlp_tda.ingest.parsers import UPLOAD_SUFFIXES, probe_filename
-from nlp_tda.ingest.uploads import batch_summary, create_batch, save_upload, uploads_root
+from nlp_tda.ingest.uploads import batch_dir, batch_summary, create_batch, save_upload, uploads_root
 from nlp_tda.models import ProposedEntity, ReviewStatus, ReviewUpdate
 from nlp_tda import jobs
 from nlp_tda.records import apply_edits
@@ -374,6 +376,27 @@ EXPORT_STRINGS = {
 }
 
 
+def _password_ok(authorization: str, password: str) -> bool:
+    """True when an ``Authorization: Basic …`` header carries ``password`` (any user name)."""
+    scheme, _, encoded = authorization.partition(" ")
+    if scheme.lower() != "basic":
+        return False
+    try:
+        given = base64.b64decode(encoded).decode("utf-8").partition(":")[2]
+    except Exception:
+        return False
+    return secrets.compare_digest(given.encode(), password.encode())
+
+
+@app.middleware("http")
+async def _require_password(request: Request, call_next):
+    password = settings.auth_password
+    if password and request.url.path != "/api/health":
+        if not _password_ok(request.headers.get("authorization", ""), password):
+            return Response(status_code=401, headers={"WWW-Authenticate": 'Basic realm="Consulting Desk"'})
+    return await call_next(request)
+
+
 @app.on_event("startup")
 def _startup() -> None:
     get_engine()
@@ -414,16 +437,21 @@ def list_formats() -> dict:
 async def api_upload(files: list[UploadFile] = File(...)) -> dict:
     if not files:
         raise HTTPException(status_code=400, detail="No files")
-    batch_dir = create_batch()
-    results = []
+    limit = settings.upload_max_mb * 1024 * 1024
+    uploads: list[tuple[str, bytes]] = []
     for uf in files:
-        data = await uf.read()
-        name = uf.filename or "upload.bin"
-        results.append(save_upload(batch_dir, name, data))
+        data = await uf.read(limit + 1)
+        if len(data) > limit:
+            raise HTTPException(
+                status_code=413, detail=f"{uf.filename or 'File'} is larger than {settings.upload_max_mb} MB"
+            )
+        uploads.append((uf.filename or "upload.bin", data))
+    new_batch = create_batch()
+    results = [save_upload(new_batch, name, data) for name, data in uploads]
     summary = batch_summary(results)
     return {
-        "batch_id": batch_dir.name,
-        "batch_dir": str(batch_dir),
+        "batch_id": new_batch.name,
+        "batch_dir": str(new_batch),
         **summary,
     }
 
@@ -443,18 +471,15 @@ def api_probe(names: list[str]) -> list[dict]:
 
 
 @app.post("/api/pipeline/run")
-def api_run_pipeline(
-    source_dir: Optional[str] = None,
-    batch_id: Optional[str] = None,
-) -> dict:
-    if batch_id:
-        path = uploads_root() / batch_id
-    elif source_dir:
-        path = Path(source_dir)
-    else:
-        path = settings.fixtures_dir
-    if not path.exists():
-        raise HTTPException(status_code=400, detail=f"Source directory not found: {path}")
+def api_run_pipeline(batch_id: Optional[str] = None) -> dict:
+    """Start a run on an upload batch, or on the synthetic fixtures when no batch is given.
+
+    The caller cannot name a folder: the only sources are upload batches and the fixtures.
+    """
+    try:
+        path = batch_dir(batch_id) if batch_id else settings.fixtures_dir
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     try:
         return jobs.as_dict(jobs.start(path))
     except jobs.JobRunning as exc:

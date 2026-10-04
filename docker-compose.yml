@@ -16,7 +16,9 @@ services:
     image: nlp-tda:local
     container_name: nlp-tda
     ports:
-      - "${NLP_TDA_PORT:-38417}:38417"
+      # Local-only by default. To reach the app from other machines set NLP_TDA_BIND=0.0.0.0
+      # AND NLP_TDA_AUTH_PASSWORD in .env (and put TLS in front: Basic auth is not encrypted).
+      - "${NLP_TDA_BIND:-127.0.0.1}:${NLP_TDA_PORT:-38417}:38417"
     env_file:
       - path: .env
         required: false

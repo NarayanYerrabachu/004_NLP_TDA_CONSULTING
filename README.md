@@ -70,3 +70,13 @@ instead and set `NLP_TDA_OLLAMA_BASE_URL=http://host.docker.internal:11434`.
   one that answers no call, fails the run with a message. Fixture records only come from mock mode.
 - **Re-runs** replace the unreviewed drafts of the same documents; accepted, edited and rejected
   records stay and are not proposed again.
+
+## Access and limits
+
+- The port is published on `127.0.0.1` only. To reach the app from other machines set
+  `NLP_TDA_BIND=0.0.0.0` and `NLP_TDA_AUTH_PASSWORD` in `.env`; every page and API call then
+  needs that password (HTTP Basic, any user name; `/api/health` stays open). Basic auth is not
+  encrypted: put TLS in front for anything beyond a trusted network.
+- A run reads an upload batch or the synthetic fixtures; a request cannot name a server folder.
+- Uploads are limited to `NLP_TDA_UPLOAD_MAX_MB` (200) per file; a ZIP to
+  `NLP_TDA_ZIP_MAX_FILES` (2000) files and `NLP_TDA_ZIP_MAX_MB` (500) unpacked.

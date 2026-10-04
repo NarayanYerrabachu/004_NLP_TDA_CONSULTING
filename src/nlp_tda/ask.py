@@ -86,11 +86,9 @@ def handle_command(
         return {"kind": "status", **_status()}
 
     if _matches(lower, ("run pipeline", "run", "pipeline", "extract", "pipeline starten", "extrahieren")):
-        from nlp_tda.ingest.uploads import uploads_root
+        from nlp_tda.ingest.uploads import batch_dir
 
-        source = None
-        if batch_id:
-            source = uploads_root() / batch_id
+        source = batch_dir(batch_id) if batch_id else None
         try:
             job_id = jobs.start(source).job_id
         except jobs.JobRunning as exc:

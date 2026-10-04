@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -282,5 +283,7 @@ def export_excel(
 
 
 def find_export(file_id: str) -> Path | None:
+    if not re.fullmatch(r"[0-9a-f]{12}", file_id):  # the id comes from the URL: no glob patterns
+        return None
     matches = list(exports_dir().glob(f"*_{file_id}.xlsx"))
     return matches[0] if matches else None

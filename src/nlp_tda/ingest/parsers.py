@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
+import shutil
 import zipfile
 from dataclasses import dataclass, field
 from email import policy
@@ -13,6 +14,8 @@ import pymupdf
 from docx import Document
 from openpyxl import load_workbook
 from pptx import Presentation
+
+from nlp_tda.config import settings
 
 # Parsed by the pipeline when found as files on disk.
 SUPPORTED_SUFFIXES = {
@@ -120,24 +123,41 @@ def parse_directory(directory: Path) -> list[ParsedDocument]:
 
 
 def expand_zip(zip_path: Path, dest_dir: Path) -> list[Path]:
-    """Extract a zip safely into dest_dir; return extracted file paths."""
+    """Extract a zip safely into dest_dir; return extracted file paths.
+
+    Raises ValueError (and leaves nothing behind) when the archive holds more files or unpacks to
+    more bytes than the settings allow. The size is counted while unpacking, not read from the
+    archive's own header, so a ZIP bomb is stopped at the limit.
+    """
+    max_bytes = settings.zip_max_mb * 1024 * 1024
     dest_dir.mkdir(parents=True, exist_ok=True)
     extracted: list[Path] = []
-    with zipfile.ZipFile(zip_path, "r") as zf:
-        for info in zf.infolist():
-            if info.is_dir():
-                continue
-            name = Path(info.filename).name
-            if not name or name.startswith("."):
-                continue
-            # Zip-slip guard: only write basename into dest
-            target = dest_dir / name
-            # Avoid overwrite collisions
-            if target.exists():
-                target = dest_dir / f"{target.stem}_{content_hash(info.filename.encode())[:6]}{target.suffix}"
-            with zf.open(info) as src, open(target, "wb") as out:
-                out.write(src.read())
-            extracted.append(target)
+    written = 0
+    try:
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            for info in zf.infolist():
+                if info.is_dir():
+                    continue
+                name = Path(info.filename).name
+                if not name or name.startswith("."):
+                    continue
+                if len(extracted) >= settings.zip_max_files:
+                    raise ValueError(f"ZIP holds more than {settings.zip_max_files} files")
+                # Zip-slip guard: only write basename into dest
+                target = dest_dir / name
+                # Avoid overwrite collisions
+                if target.exists():
+                    target = dest_dir / f"{target.stem}_{content_hash(info.filename.encode())[:6]}{target.suffix}"
+                with zf.open(info) as src, open(target, "wb") as out:
+                    while block := src.read(1024 * 1024):
+                        written += len(block)
+                        if written > max_bytes:
+                            raise ValueError(f"ZIP unpacks to more than {settings.zip_max_mb} MB")
+                        out.write(block)
+                extracted.append(target)
+    except Exception:
+        shutil.rmtree(dest_dir, ignore_errors=True)
+        raise
     return extracted
 
 
