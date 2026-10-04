@@ -7,7 +7,9 @@ from typing import Any
 import httpx
 
 from nlp_tda.config import settings
+from nlp_tda.extract.dedupe import merge_near_duplicates
 from nlp_tda.extract.prompts import build_extraction_prompt
+from nlp_tda.ingest.chunking import Chunk
 from nlp_tda.models import ExtractionBundle
 
 
@@ -219,7 +221,7 @@ def mock_extract(chunk_texts: list[str], theme_labels: list[str]) -> ExtractionB
 
 
 def extract_entities(
-    chunk_texts: list[str],
+    chunks: list[Chunk],
     theme_labels: list[str],
     *,
     prefer_de: bool = False,
@@ -228,19 +230,21 @@ def extract_entities(
 
     Returns (bundle, llm_mode, chunks_read). llm_mode: "mock" (no LLM), "ollama" (every batch
     answered), "ollama-partial" (some batches failed and were skipped), "mock-fallback"
-    (every batch failed).
+    (every batch failed). Records from the LLM point at the chunk they were read from, and
+    requirements / findings stated twice in other words are merged.
     """
+    chunk_texts = [c.text for c in chunks]
     client = OllamaClient()
     if not client.available():
-        return mock_extract(chunk_texts, theme_labels), "mock", len(chunk_texts)
+        return mock_extract(chunk_texts, theme_labels), "mock", len(chunks)
 
-    batches = _batches(chunk_texts)
+    batches = _batches(chunks)
     merged = ExtractionBundle()
     seen: set[tuple[str, str]] = set()
     failed = 0
     for batch in batches:
         system, user = build_extraction_prompt(
-            chunk_texts=batch,
+            chunk_texts=[c.text for c in batch],
             theme_labels=theme_labels,
             prefer_de=prefer_de,
         )
@@ -249,11 +253,13 @@ def extract_entities(
         except Exception:
             failed += 1
             continue
+        _attach_sources(bundle, batch)
         _merge(merged, bundle, seen)
 
     chunks_read = sum(len(b) for b in batches)
     if batches and failed == len(batches):
         return mock_extract(chunk_texts, theme_labels), "mock-fallback", chunks_read
+    merge_near_duplicates(merged)
     return merged, "ollama-partial" if failed else "ollama", chunks_read
 
 
@@ -268,9 +274,9 @@ _NAME_FIELD = {
 }
 
 
-def _batches(chunk_texts: list[str]) -> list[list[str]]:
+def _batches(chunks: list[Chunk]) -> list[list[Chunk]]:
     size = max(settings.extract_batch_chunks, 1)
-    batches = [chunk_texts[i : i + size] for i in range(0, len(chunk_texts), size)]
+    batches = [chunks[i : i + size] for i in range(0, len(chunks), size)]
     limit = settings.extract_max_batches
     if limit > 0 and len(batches) > limit:
         step = len(batches) / limit
@@ -278,11 +284,34 @@ def _batches(chunk_texts: list[str]) -> list[list[str]]:
     return batches
 
 
+def _norm(text: object) -> str:
+    return " ".join(str(text).lower().split())
+
+
+def _attach_sources(bundle: ExtractionBundle, batch: list[Chunk]) -> None:
+    """Point each record at the chunk it was read from.
+
+    The excerpt that contains the record's name or statement word for word wins; otherwise the
+    excerpt number the LLM cited. A record with neither has no source (never an invented one).
+    """
+    texts = [_norm(c.text) for c in batch]
+    for field, name_field in _NAME_FIELD.items():
+        for item in getattr(bundle, field):
+            name = _norm(getattr(item, name_field))
+            chunk = next((c for c, text in zip(batch, texts) if name and name in text), None)
+            if chunk is None:
+                digits = "".join(ch for ch in str(item.chunk) if ch.isdigit())
+                number = int(digits) if digits else 0
+                chunk = batch[number - 1] if 1 <= number <= len(batch) else None
+            item.source_artifact_id = chunk.artifact_id if chunk else None
+            item.span_ref = chunk.span_ref if chunk else None
+
+
 def _merge(merged: ExtractionBundle, bundle: ExtractionBundle, seen: set[tuple[str, str]]) -> None:
     """Add a batch's records to ``merged``; a record already named by an earlier batch is kept once."""
     for field, name_field in _NAME_FIELD.items():
         for item in getattr(bundle, field):
-            key = (field, " ".join(str(getattr(item, name_field)).lower().split()))
+            key = (field, _norm(getattr(item, name_field)))
             if key in seen:
                 continue
             seen.add(key)

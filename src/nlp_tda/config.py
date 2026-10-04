@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     # 0 = no limit. A CPU-only 7B model can need minutes per call; a limit reads that many
     # batches spread evenly over the pack, and the run reports how many chunks were read.
     extract_max_batches: int = 0
+    # Requirements / findings whose statements are at least this similar (cosine of their
+    # embeddings) are one record. 0 = keep every wording. Needs the embedding model.
+    dedupe_similarity: float = 0.6
     tda_pca_dims: int = 8
     tda_max_points: int = 200
 

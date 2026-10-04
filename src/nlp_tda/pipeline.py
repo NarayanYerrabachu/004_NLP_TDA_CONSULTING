@@ -88,9 +88,7 @@ def run_pipeline(
     blob = "\n".join(c.text for c in all_chunks[:20]).lower()
     prefer_de = sum(1 for w in ("und", "der", "die", "anforderung", "mandat") if w in blob) >= 2
 
-    bundle, llm_mode, chunks_extracted = extract_entities(
-        [c.text for c in all_chunks], theme_labels, prefer_de=prefer_de
-    )
+    bundle, llm_mode, chunks_extracted = extract_entities(all_chunks, theme_labels, prefer_de=prefer_de)
 
     session = get_session()
     try:

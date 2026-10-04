@@ -46,12 +46,12 @@ SHEET_SPECS: list[tuple[str, str, list[str]]] = [
     (
         "Requirement",
         "requirement",
-        ["statement", "priority", "status"],
+        ["statement", "priority", "status", "also_stated"],
     ),
     (
         "Finding",
         "finding",
-        ["statement", "severity", "theme", "status"],
+        ["statement", "severity", "theme", "status", "also_stated"],
     ),
     (
         "Deliverable",

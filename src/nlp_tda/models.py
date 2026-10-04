@@ -36,6 +36,9 @@ class ProvenanceFields(BaseModel):
     span_ref: Optional[str] = None
     review_status: ReviewStatus = ReviewStatus.proposed
     language: Optional[str] = Field(default=None, description="en | de | mixed")
+    # Number of the excerpt the LLM read the record from (within one call). Resolved to
+    # source_artifact_id / span_ref right after the call; not stored.
+    chunk: Any = Field(default=None, exclude=True)
 
 
 class ClientRecord(ProvenanceFields):
@@ -78,12 +81,14 @@ class ArtifactRecord(ProvenanceFields):
 
 class RequirementRecord(ProvenanceFields):
     statement: str
+    also_stated: list[str] = Field(default_factory=list)  # other wordings merged into this record
     priority: Optional[str] = None
     status: Optional[str] = None
 
 
 class FindingRecord(ProvenanceFields):
     statement: str
+    also_stated: list[str] = Field(default_factory=list)  # other wordings merged into this record
     severity: Optional[str] = None
     theme: Optional[str] = None
     status: Optional[str] = None
