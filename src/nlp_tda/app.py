@@ -406,6 +406,11 @@ def _startup() -> None:
     uploads_root()
 
 
+@app.get("/favicon.svg", include_in_schema=False)
+def favicon() -> FileResponse:
+    return FileResponse(settings.templates_dir / "logo.svg", media_type="image/svg+xml")
+
+
 @app.get("/api/health")
 def health() -> dict:
     return {"status": "ok", "version": "0.1.0"}

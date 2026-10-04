@@ -1,0 +1,9 @@
+<svg class="brand-mark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="44" height="44" role="img" aria-label="Consulting Desk">
+  <rect width="48" height="48" rx="12" fill="#0f6e56"/>
+  <path d="M15.5 9h12.2L36 17.3V37a2.5 2.5 0 0 1-2.5 2.5h-18A2.5 2.5 0 0 1 13 37V11.5A2.5 2.5 0 0 1 15.5 9z" fill="#fff"/>
+  <path d="M27.7 9v5.8a2.5 2.5 0 0 0 2.5 2.5H36z" fill="#b9dccd"/>
+  <path d="M23.5 22.5 18.5 32.5 30.5 34z" fill="#0f6e56" fill-opacity=".16" stroke="#0f6e56" stroke-width="1.6" stroke-linejoin="round"/>
+  <circle cx="18.5" cy="32.5" r="2.5" fill="#0f6e56"/>
+  <circle cx="30.5" cy="34" r="2.5" fill="#0f6e56"/>
+  <circle cx="23.5" cy="22.5" r="2.9" fill="#e3a23a"/>
+</svg>

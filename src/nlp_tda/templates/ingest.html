@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{{ s.title }}</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <style>
     :root {
       --bg: #0f1419;
@@ -116,14 +117,19 @@
     #result.show { display: block; }
     code { font-family: var(--mono); font-size: 0.85rem; }
     .child { color: var(--muted); font-size: 0.82rem; padding-left: 0.75rem; }
+    .brand-row { display: flex; align-items: center; gap: 0.85rem; }
+    .brand-mark { flex: none; width: 44px; height: 44px; }
   </style>
 </head>
 <body>
   <header>
+    <div class="brand-row">
+    {% include "logo.svg" %}
     <div>
       <h1>{{ s.title }}</h1>
       <p class="sub">{{ s.subtitle }}</p>
       <p class="note">{{ s.note }}</p>
+    </div>
     </div>
     <div class="actions">
       <a class="btn secondary" href="/?lang={{ lang }}">{{ s.nav_ingest }}</a>

@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{{ s.title }}</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=Sora:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -189,14 +190,19 @@
     @media (max-width: 640px) {
       header.appbar, main { padding-left: 1rem; padding-right: 1rem; }
     }
+    .brand-row { display: flex; align-items: center; gap: 0.85rem; }
+    .brand-mark { flex: none; width: 44px; height: 44px; }
   </style>
 </head>
 <body>
   <header class="appbar">
+    <div class="brand-row">
+    {% include "logo.svg" %}
     <div>
       <h1 class="brand-name">{{ s.title }}</h1>
       <p class="brand-tag">{{ s.subtitle }}</p>
       <p class="note">{{ s.synthetic_note }}</p>
+    </div>
     </div>
     <nav class="nav">
       <a class="btn secondary" href="/?lang={{ lang }}">{{ s.nav_ingest }}</a>
