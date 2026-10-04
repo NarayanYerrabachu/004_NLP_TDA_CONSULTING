@@ -44,14 +44,16 @@ uv sync
 uv run nlp-tda serve --host 0.0.0.0 --port 38417
 ```
 
-## Optional: host Ollama
+## Local LLM (Ollama in Docker)
 
-Default container uses mock LLM + hash embeddings. For a local model:
+A fresh `.env` uses the mock LLM + hash embeddings. For real extraction and answers:
 
-1. On the host: `OLLAMA_HOST=0.0.0.0:11434 ollama serve` then `ollama pull qwen2.5:7b`
-   (must listen on `0.0.0.0`, not only `127.0.0.1`, so Docker can reach it)
-2. In `.env`: `NLP_TDA_FORCE_MOCK_LLM=false`
-3. `./scripts/up.sh`
+1. `docker compose up -d` starts the `ollama` service next to the app.
+2. Pull a model once (kept in the `ollama-models` volume):
+   `docker compose exec ollama ollama pull qwen2.5:14b`
+3. In `.env`: `NLP_TDA_FORCE_MOCK_LLM=false`, `NLP_TDA_USE_HASH_EMBEDDINGS=false`,
+   `NLP_TDA_OLLAMA_MODEL=qwen2.5:14b`
+4. `docker compose up -d` again so the app picks up `.env`.
 
-Compose defaults `NLP_TDA_OLLAMA_BASE_URL` to the Docker bridge gateway `http://172.18.0.1:11434`.
-On Docker Desktop you can switch to `http://host.docker.internal:11434`.
+Inside Docker on macOS the model runs on CPU only. For GPU speed run Ollama on the host
+instead and set `NLP_TDA_OLLAMA_BASE_URL=http://host.docker.internal:11434`.

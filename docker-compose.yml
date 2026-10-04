@@ -32,8 +32,8 @@ services:
       NLP_TDA_FIXTURES_DIR: "/app/fixtures/synthetic_engagement"
       NLP_TDA_USE_HASH_EMBEDDINGS: "${NLP_TDA_USE_HASH_EMBEDDINGS:-true}"
       NLP_TDA_FORCE_MOCK_LLM: "${NLP_TDA_FORCE_MOCK_LLM:-false}"
-      # Prefer project .env; default to compose-bridge gateway (Ollama must listen on 0.0.0.0)
-      NLP_TDA_OLLAMA_BASE_URL: "http://172.18.0.1:11434"
+      # The ollama service below; point it at a host Ollama with e.g. http://host.docker.internal:11434
+      NLP_TDA_OLLAMA_BASE_URL: "${NLP_TDA_OLLAMA_BASE_URL:-http://ollama:11434}"
       NLP_TDA_OLLAMA_MODEL: "${NLP_TDA_OLLAMA_MODEL:-qwen2.5:7b}"
       PYTHONPATH: "/app/src"
     volumes:
@@ -50,5 +50,15 @@ services:
       retries: 3
     restart: unless-stopped
 
+  # Local LLM for extraction and answers. CPU only inside Docker on macOS (no GPU access).
+  # Pull the model once:  docker compose exec ollama ollama pull qwen2.5:14b
+  ollama:
+    image: ollama/ollama
+    container_name: nlp-tda-ollama
+    volumes:
+      - ollama-models:/root/.ollama
+    restart: unless-stopped
+
 volumes:
   hf-cache:
+  ollama-models:
