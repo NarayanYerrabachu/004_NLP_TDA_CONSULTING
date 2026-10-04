@@ -18,7 +18,7 @@ echo "Building & starting Consulting Desk…"
 # Pass --build to force: ./scripts/up.sh --build
 if [[ "${1:-}" == "--build" ]]; then
   docker compose up --build -d
-elif docker image inspect nlp-tda:local >/dev/null 2>&1; then
+elif docker image inspect yerran/consulting-desk:latest >/dev/null 2>&1; then
   docker compose up -d --no-build
 else
   docker compose up --build -d

@@ -32,7 +32,10 @@ RUN apt-get update \
 
 COPY --from=ghcr.io/astral-sh/uv:0.12.23 /uv /usr/local/bin/uv
 
+# Dependencies first (torch and friends): this layer is reused until pyproject.toml / uv.lock change.
 COPY pyproject.toml uv.lock README.md ./
+RUN uv sync --frozen --no-dev --no-install-project
+
 COPY src ./src
 COPY fixtures ./fixtures
 

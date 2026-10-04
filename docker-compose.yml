@@ -13,7 +13,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: nlp-tda:local
+    image: yerran/consulting-desk:latest
     container_name: nlp-tda
     ports:
       # Local-only by default. To reach the app from other machines set NLP_TDA_BIND=0.0.0.0
