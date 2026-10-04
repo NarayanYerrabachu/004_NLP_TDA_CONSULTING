@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 38417
 
+    # With the embedding model, chunks are sized in its tokens: 0 = as many as the model reads
+    # per input (a longer chunk would be cut off when embedded).
+    chunk_tokens: int = 0
+    chunk_token_overlap: int = 24
+    # With hash embeddings (no model, no tokenizer), chunks are sized in characters.
     chunk_size: int = 800
     chunk_overlap: int = 120
     # Extraction reads the whole pack, this many chunks per LLM call.

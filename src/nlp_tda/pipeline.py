@@ -7,7 +7,7 @@ from typing import Any
 from nlp_tda.config import settings
 from nlp_tda.db import get_session
 from nlp_tda.embed.chroma_store import ChunkStore
-from nlp_tda.embed.embeddings import embed_chunks
+from nlp_tda.embed.embeddings import embed_chunks, embedding_mode, token_budget
 from nlp_tda.extract.ollama_client import extract_entities
 from nlp_tda.ingest.chunking import Chunk, artifact_id_for, chunk_document
 from nlp_tda.ingest.parsers import expand_zip, parse_directory
@@ -53,6 +53,7 @@ def run_pipeline(
 
     all_chunks: list[Chunk] = []
     artifact_rows: list[ArtifactRow] = []
+    tokens = token_budget(force_hash=force_hash_embeddings)
     for doc in docs:
         art_id = artifact_id_for(doc)
         artifact_rows.append(
@@ -67,7 +68,9 @@ def run_pipeline(
             )
         )
         all_chunks.extend(
-            chunk_document(doc, chunk_size=settings.chunk_size, overlap=settings.chunk_overlap)
+            chunk_document(
+                doc, chunk_size=settings.chunk_size, overlap=settings.chunk_overlap, tokens=tokens
+            )
         )
 
     embeddings = embed_chunks(all_chunks, force_hash=force_hash_embeddings)
@@ -167,6 +170,7 @@ def run_pipeline(
         "themes": len(themes),
         "entities": entity_count,
         "llm_mode": llm_mode,
+        "embedding_mode": embedding_mode(force_hash=force_hash_embeddings),
         "chunks_extracted": chunks_extracted,
         "source_dir": str(source),
         "vector_count": store.count(),
