@@ -24,6 +24,7 @@ from nlp_tda.ingest.parsers import UPLOAD_SUFFIXES, probe_filename
 from nlp_tda.ingest.uploads import batch_summary, create_batch, save_upload, uploads_root
 from nlp_tda.models import ProposedEntity, ReviewStatus, ReviewUpdate
 from nlp_tda.pipeline import run_pipeline
+from nlp_tda.records import apply_edits
 
 app = FastAPI(title="NLP_TDA", version="0.1.0")
 templates = Jinja2Templates(directory=str(settings.templates_dir))
@@ -499,15 +500,7 @@ def patch_entity(entity_id: int, update: ReviewUpdate) -> dict:
         if not row:
             raise HTTPException(status_code=404, detail="Not found")
         if update.edits:
-            payload = dict(row.payload or {})
-            payload.update(update.edits)
-            row.payload = payload
-            if "name" in update.edits:
-                row.title = str(update.edits["name"])
-            elif "title" in update.edits:
-                row.title = str(update.edits["title"])
-            elif "statement" in update.edits:
-                row.title = str(update.edits["statement"])[:120]
+            apply_edits(row, update.edits)
             if update.review_status == ReviewStatus.proposed:
                 row.review_status = ReviewStatus.edited.value
             else:
@@ -695,16 +688,8 @@ def ui_review(
                 edits = json.loads(payload_json) if payload_json.strip() else {}
             except json.JSONDecodeError as exc:
                 raise HTTPException(status_code=400, detail="Invalid JSON") from exc
-            payload = dict(row.payload or {})
-            payload.update(edits)
-            row.payload = payload
+            apply_edits(row, edits)
             row.review_status = ReviewStatus.edited.value
-            if "name" in edits:
-                row.title = str(edits["name"])
-            elif "title" in edits:
-                row.title = str(edits["title"])
-            elif "statement" in edits:
-                row.title = str(edits["statement"])[:120]
         session.commit()
     finally:
         session.close()

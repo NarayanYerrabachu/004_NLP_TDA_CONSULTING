@@ -12,6 +12,7 @@ from nlp_tda.extract.ollama_client import extract_entities
 from nlp_tda.ingest.chunking import Chunk, artifact_id_for, chunk_document
 from nlp_tda.ingest.parsers import expand_zip, parse_directory
 from nlp_tda.models import ArtifactRow, PipelineRun, ProposedEntity, ReviewStatus, ThemeRecord
+from nlp_tda.records import save_run_records
 from nlp_tda.tda.persistence import discover_themes
 
 
@@ -95,11 +96,11 @@ def run_pipeline(
         for row in artifact_rows:
             session.merge(row)
 
-        entity_count = 0
+        session.flush()
+        records: list[ProposedEntity] = []
 
         def _add(entity_type: str, title: str, payload: dict, conf: float, art: str | None, span: str | None, lang: str | None):
-            nonlocal entity_count
-            session.add(
+            records.append(
                 ProposedEntity(
                     entity_type=entity_type,
                     title=title,
@@ -112,7 +113,6 @@ def run_pipeline(
                     run_id=run_id,
                 )
             )
-            entity_count += 1
 
         for item in bundle.clients:
             _add("client", item.name, item.model_dump(), item.confidence, item.source_artifact_id, item.span_ref, item.language)
@@ -146,6 +146,15 @@ def run_pipeline(
                 "mixed",
             )
 
+        saved = save_run_records(
+            session,
+            records,
+            run_id=run_id,
+            source_dir=str(source),
+            content_hashes={doc.content_hash for doc in docs},
+        )
+        entity_count = saved["added"]
+
         session.add(
             PipelineRun(
                 id=run_id,
@@ -167,6 +176,8 @@ def run_pipeline(
         "chunks": len(all_chunks),
         "themes": len(themes),
         "entities": entity_count,
+        "drafts_replaced": saved["replaced"],
+        "already_reviewed": saved["already_reviewed"],
         "llm_mode": llm_mode,
         "embedding_mode": embedding_mode(force_hash=force_hash_embeddings),
         "chunks_extracted": chunks_extracted,
