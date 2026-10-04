@@ -1,8 +1,14 @@
-"""TDA structure discovery via ripser (Vietoris–Rips persistence).
+"""Themes: groups of chunks that are about the same thing, each with a readable label and a
+measure of how distinct it is.
 
-Why ripser for MVP: lightest VR persistence stack that installs cleanly via pip,
-avoids heavy GUDHI/giotto-tda native builds, and is enough to surface stable
-components / outliers on a PCA-reduced embedding cloud for small engagement packs.
+Grouping is average-linkage clustering of the chunk embeddings (cosine distance), with the number
+of groups chosen by silhouette. When the best grouping separates the chunks poorly, the pack is
+reported as one theme instead of inventing several.
+
+Stability is the theme's H0 persistence in the Vietoris-Rips filtration of its chunks: the theme
+is exactly one connected component from the scale where its chunks join up ("formed") until the
+scale where it touches a chunk outside ("merged"). stability = 1 - formed / merged; 0 means the
+theme is never a component of its own.
 """
 
 from __future__ import annotations
@@ -10,13 +16,26 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
-from ripser import ripser
+from scipy.cluster.hierarchy import linkage
+from scipy.spatial.distance import squareform
 from sklearn.cluster import AgglomerativeClustering
-from sklearn.decomposition import PCA
-from sklearn.metrics import pairwise_distances
+from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS, TfidfVectorizer
+from sklearn.metrics import pairwise_distances, silhouette_score
 
 from nlp_tda.config import settings
 from nlp_tda.ingest.chunking import Chunk
+
+MAX_THEMES = 8
+MIN_THEME_CHUNKS = 2  # a lone chunk is an outlier, not a theme
+LABEL_TERMS = 3
+
+_GERMAN_STOP_WORDS = frozenset(
+    "aber alle als also am an auch auf aus bei bis da damit dann das dass dem den der des die dies diese "
+    "dieser dieses doch durch ein eine einem einen einer eines er es für hat haben ich ihr ihre im in ist "
+    "je kann kein keine man mit muss nach nicht noch nur oder pro sein sich sie sind so soll sowie über um "
+    "und unter von vor war was wenn werden wie wir wird zu zum zur".split()
+)
+_STOP_WORDS = sorted(ENGLISH_STOP_WORDS | _GERMAN_STOP_WORDS)
 
 
 @dataclass
@@ -28,119 +47,104 @@ class ThemeCandidate:
     outlier: bool = False
 
 
+def _top_terms(groups: list[list[str]]) -> list[list[str]]:
+    """Per group of texts, the words that set it apart from the other groups (TF-IDF over groups)."""
+    try:
+        vectorizer = TfidfVectorizer(
+            stop_words=_STOP_WORDS, token_pattern=r"(?u)\b[^\W\d_]{3,}\b", sublinear_tf=True
+        )
+        scores = vectorizer.fit_transform(["\n".join(texts) for texts in groups]).toarray()
+    except ValueError:  # no words left after stop words
+        return [[] for _ in groups]
+    vocabulary = vectorizer.get_feature_names_out()
+    return [[vocabulary[i] for i in np.argsort(-row, kind="stable")[:LABEL_TERMS] if row[i] > 0] for row in scores]
+
+
+def _persistence(distances: np.ndarray, members: np.ndarray) -> tuple[float, float]:
+    """(formed, merged) scales of a group: where its chunks become one component, and where that
+    component first touches a chunk outside the group (inf when there is nothing outside)."""
+    inside = distances[np.ix_(members, members)]
+    formed = float(linkage(squareform(inside, checks=False), method="single")[:, 2].max()) if len(members) > 1 else 0.0
+    outside = np.setdiff1d(np.arange(len(distances)), members)
+    merged = float(distances[np.ix_(members, outside)].min()) if len(outside) else float("inf")
+    return formed, merged
+
+
+def _group(distances: np.ndarray) -> tuple[np.ndarray, float]:
+    """Cluster labels and their silhouette; one group (silhouette 0) when nothing separates well."""
+    n = len(distances)
+    best: tuple[float, np.ndarray] | None = None
+    for k in range(2, min(MAX_THEMES, n - 1) + 1):
+        labels = AgglomerativeClustering(n_clusters=k, metric="precomputed", linkage="average").fit_predict(distances)
+        score = float(silhouette_score(distances, labels, metric="precomputed"))
+        if best is None or score > best[0]:
+            best = (score, labels)
+    if best is None or best[0] < settings.theme_min_separation:
+        return np.zeros(n, dtype=int), 0.0
+    return best[1], best[0]
+
+
 def discover_themes(
     chunks: list[Chunk],
     embeddings: np.ndarray,
     *,
-    pca_dims: int | None = None,
     max_points: int | None = None,
 ) -> list[ThemeCandidate]:
     if not chunks or embeddings.size == 0:
         return []
 
-    pca_dims = pca_dims or settings.tda_pca_dims
-    max_points = max_points or settings.tda_max_points
-
     n = embeddings.shape[0]
-    idx = np.arange(n)
+    sample = np.arange(n)
+    max_points = max_points or settings.tda_max_points
     if n > max_points:
-        rng = np.random.default_rng(42)
-        idx = np.sort(rng.choice(n, size=max_points, replace=False))
+        sample = np.sort(np.random.default_rng(42).choice(n, size=max_points, replace=False))
+    distances = pairwise_distances(embeddings[sample], metric="cosine")
+    np.fill_diagonal(distances, 0.0)
+    sample_labels, separation = _group(distances)
 
-    sample = embeddings[idx]
-    dims = min(pca_dims, sample.shape[0] - 1, sample.shape[1])
-    if dims < 2:
-        # Degenerate: one theme with all members
-        return [
-            ThemeCandidate(
-                label="Theme 1",
-                stability_score=0.1,
-                member_chunk_ids=[c.id for c in chunks],
-                persistence_summary="insufficient points for VR filtration",
+    # Chunks outside the sample join the group of their nearest sampled chunk.
+    labels = np.empty(n, dtype=int)
+    labels[sample] = sample_labels
+    rest = np.setdiff1d(np.arange(n), sample)
+    if len(rest):
+        nearest = pairwise_distances(embeddings[rest], embeddings[sample], metric="cosine").argmin(axis=1)
+        labels[rest] = sample_labels[nearest]
+
+    groups = [np.flatnonzero(labels == g) for g in np.unique(labels)]
+    themes = sorted((g for g in groups if len(g) >= MIN_THEME_CHUNKS or len(groups) == 1), key=len, reverse=True)
+    lone = [int(i) for g in groups if len(g) < MIN_THEME_CHUNKS and len(groups) > 1 for i in g]
+
+    terms = _top_terms([[chunks[i].text for i in g] for g in themes] + ([[chunks[i].text for i in lone]] if lone else []))
+    position = {int(s): p for p, s in enumerate(sample)}
+    out: list[ThemeCandidate] = []
+    for number, (members, words) in enumerate(zip(themes, terms), start=1):
+        sampled = np.array([position[int(i)] for i in members if int(i) in position])
+        formed, merged = _persistence(distances, sampled)
+        stability = 0.0 if merged == float("inf") else max(0.0, 1.0 - formed / merged) if merged > 0 else 0.0
+        if len(themes) == 1 and not lone:
+            summary = f"no separate themes found; {len(members)} chunks"
+        else:
+            summary = (
+                f"one component from scale {formed:.2f} until it meets another chunk at {merged:.2f}; "
+                f"{len(members)} chunks; grouping silhouette {separation:.2f}"
             )
-        ]
-
-    reduced = PCA(n_components=dims, random_state=42).fit_transform(sample)
-    # Finite metric for ripser
-    dists = pairwise_distances(reduced, metric="euclidean")
-    result = ripser(dists, distance_matrix=True, maxdim=1)
-    diagrams = result["dgms"]
-
-    h0 = diagrams[0]
-    # Finite H0 death times ≈ merge scale; longer life ≈ more stable component
-    finite_h0 = h0[np.isfinite(h0[:, 1])]
-    if len(finite_h0) == 0:
-        n_clusters = 1
-        lifetimes = np.array([1.0])
-    else:
-        lifetimes = finite_h0[:, 1] - finite_h0[:, 0]
-        # Number of relatively persistent components (exclude trivial noise)
-        median = float(np.median(lifetimes)) if len(lifetimes) else 0.0
-        persistent = lifetimes[lifetimes >= max(median, 1e-6)]
-        n_clusters = int(np.clip(len(persistent), 1, min(8, sample.shape[0])))
-
-    clustering = AgglomerativeClustering(n_clusters=n_clusters, metric="euclidean", linkage="average")
-    labels = clustering.fit_predict(reduced)
-
-    # Map sample labels back; unsampled points assigned by nearest sampled neighbor
-    full_labels = np.full(n, -1, dtype=int)
-    full_labels[idx] = labels
-    if n > max_points:
-        for i in range(n):
-            if full_labels[i] >= 0:
-                continue
-            d = np.linalg.norm(embeddings[i] - embeddings[idx], axis=1)
-            full_labels[i] = labels[int(np.argmin(d))]
-
-    # Outliers: points far from their cluster centroid in reduced space (sampled only)
-    centroids = {k: reduced[labels == k].mean(axis=0) for k in range(n_clusters)}
-    outlier_sample = set()
-    for local_i, global_i in enumerate(idx):
-        k = labels[local_i]
-        dist = np.linalg.norm(reduced[local_i] - centroids[k])
-        # Flag top distant points relatively
-        outlier_sample.add((dist, global_i, k))
-    # Mark the farthest ~10% as outliers
-    ordered = sorted(outlier_sample, reverse=True)
-    outlier_ids = {chunks[g].id for _, g, _ in ordered[: max(1, len(ordered) // 10)]}
-
-    h1_count = 0
-    if len(diagrams) > 1:
-        h1 = diagrams[1]
-        h1_count = int(np.sum(np.isfinite(h1[:, 1])))
-
-    themes: list[ThemeCandidate] = []
-    for k in range(n_clusters):
-        members = [chunks[i].id for i in range(n) if full_labels[i] == k]
-        if not members:
-            continue
-        # Stability proxy: normalized mean H0 lifetime vs cluster size
-        stab = float(np.mean(lifetimes)) if len(lifetimes) else 0.0
-        stab = min(1.0, stab / (stab + 1.0) + 0.05 * min(len(members), 10))
-        themes.append(
+        out.append(
             ThemeCandidate(
-                label=f"Theme {k + 1}",
-                stability_score=round(stab, 3),
-                member_chunk_ids=members,
-                persistence_summary=(
-                    f"H0_finite={len(finite_h0)}; H1_finite={h1_count}; "
-                    f"pca_dims={dims}; members={len(members)}"
-                ),
-                outlier=any(m in outlier_ids for m in members) and len(members) <= 2,
+                label=" · ".join(words) or f"Theme {number}",
+                stability_score=round(stability, 3),
+                member_chunk_ids=[chunks[int(i)].id for i in members],
+                persistence_summary=summary,
             )
         )
-
-    # Dedicated outlier theme if sparse high-distance points exist
-    sparse = [cid for cid in outlier_ids if all(cid not in t.member_chunk_ids or len(t.member_chunk_ids) > 2 for t in themes)]
-    if sparse:
-        themes.append(
+    if lone:
+        words = terms[-1]
+        out.append(
             ThemeCandidate(
-                label="Outliers",
-                stability_score=0.2,
-                member_chunk_ids=list(outlier_ids),
-                persistence_summary="far-from-centroid points in PCA+VR pipeline",
+                label="Outliers" + (f": {' · '.join(words)}" if words else ""),
+                stability_score=0.0,
+                member_chunk_ids=[chunks[i].id for i in lone],
+                persistence_summary=f"{len(lone)} chunk(s) unlike any theme",
                 outlier=True,
             )
         )
-
-    return themes
+    return out

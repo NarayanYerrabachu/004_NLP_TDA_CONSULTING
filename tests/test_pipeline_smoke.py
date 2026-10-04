@@ -71,7 +71,7 @@ def test_tda_returns_themes():
     for d in docs:
         chunks.extend(chunk_document(d, chunk_size=400, overlap=40))
     emb = embed_chunks(chunks, force_hash=True)
-    themes = discover_themes(chunks, emb, pca_dims=6, max_points=80)
+    themes = discover_themes(chunks, emb, max_points=80)
     assert themes
     assert any(t.member_chunk_ids for t in themes)
 

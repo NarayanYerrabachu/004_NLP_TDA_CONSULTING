@@ -57,8 +57,10 @@ class Settings(BaseSettings):
     # Requirements / findings whose statements are at least this similar (cosine of their
     # embeddings) are one record. 0 = keep every wording. Needs the embedding model.
     dedupe_similarity: float = 0.6
-    tda_pca_dims: int = 8
-    tda_max_points: int = 200
+    # Themes: at most this many chunks are clustered (the rest join their nearest sampled chunk).
+    tda_max_points: int = 2000
+    # Below this silhouette the pack is reported as one theme instead of several weak ones.
+    theme_min_separation: float = 0.25
 
     @property
     def templates_dir(self) -> Path:
